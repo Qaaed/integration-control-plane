@@ -200,13 +200,11 @@ export default function ComponentHeader({ component, project, repository, latest
   const HeaderActions = module?.OverviewHeaderActions;
   // Open-in-Cloud/VS Code editor entry: only for components with a source repo
   // and types that don't opt out of it (e.g. MCP sets `hideOpenInEditor`).
-  // cloud: opening an existing component in an editor is not wired yet — the
-  // BFF injects no git credentials into the cloud editor (it would open an
-  // empty workspace) and the VS Code extension deep-link has no cloud support.
-  // Only the new-integration editor flow (Project/CreateIntegrationOptions) is
-  // available.
-  // TODO: Remove the gate once the BFF injects GIT_* for source components.
-  const showOpenInEditor = hasSource && !module?.hideOpenInEditor && !IS_CLOUD;
+  const showOpenInEditor = hasSource && !module?.hideOpenInEditor;
+  // Cloud offers the cloud editor alone: the VS Code deep link addresses an
+  // extension installed on the reader's own machine, which is not where a
+  // cloud integration is edited. One destination needs no menu to choose it.
+  const showEditorMenu = !IS_CLOUD;
 
   const repoUrl = repository ? buildRepoBrowseUrl(repository) : null;
   const ProviderIcon = getGitProviderIcon(repository?.gitProvider);
@@ -543,15 +541,22 @@ export default function ComponentHeader({ component, project, repository, latest
           {/* Open in Cloud / VS Code — hidden for repo-less / MCP components */}
           {showOpenInEditor && (
             <Box sx={{ position: 'relative' }}>
-              <ButtonGroup variant="outlined" size="small" ref={splitButtonRef}>
-                <Button startIcon={<Cloud size={14} />} onClick={handleOpenInCloud} disabled={!codeServerSample} sx={{ whiteSpace: 'nowrap' }}>
-                  Open in Cloud&nbsp;
-                  <Chip label="Beta" size="small" sx={{ height: 16, fontSize: 10, cursor: 'pointer' }} />
+              {showEditorMenu ? (
+                <ButtonGroup variant="outlined" size="small" ref={splitButtonRef}>
+                  <Button startIcon={<Cloud size={14} />} onClick={handleOpenInCloud} disabled={!codeServerSample} sx={{ whiteSpace: 'nowrap' }}>
+                    Open in Cloud&nbsp;
+                    <Chip label="Beta" size="small" sx={{ height: 16, fontSize: 10, cursor: 'pointer' }} />
+                  </Button>
+                  <Button size="small" sx={{ px: 0.5 }} aria-label="More options" aria-expanded={splitOpen} onClick={() => setSplitOpen((prev) => !prev)}>
+                    <ChevronDown size={14} />
+                  </Button>
+                </ButtonGroup>
+              ) : (
+                <Button variant="outlined" size="small" startIcon={<Cloud size={14} />} onClick={handleOpenInCloud} disabled={!codeServerSample} sx={{ whiteSpace: 'nowrap' }}>
+                  Open in Cloud Editor
                 </Button>
-                <Button size="small" sx={{ px: 0.5 }} aria-label="More options" aria-expanded={splitOpen} onClick={() => setSplitOpen((prev) => !prev)}>
-                  <ChevronDown size={14} />
-                </Button>
-              </ButtonGroup>
+              )}
+              {showEditorMenu && (
               <Popper open={splitOpen} anchorEl={splitButtonRef.current} placement="bottom-end" transition disablePortal style={{ zIndex: 1300 }}>
                 {({ TransitionProps }) => (
                   <Grow {...TransitionProps}>
@@ -577,6 +582,7 @@ export default function ComponentHeader({ component, project, repository, latest
                   </Grow>
                 )}
               </Popper>
+              )}
             </Box>
           )}
 
