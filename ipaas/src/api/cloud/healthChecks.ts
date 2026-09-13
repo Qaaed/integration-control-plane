@@ -19,7 +19,6 @@
 /** The BFF addresses probes per (component, environment) with no id, so the env stands in for every id devant carries. */
 
 import { bff, seg } from './_client';
-import { envForRelease } from './_releaseEnv';
 import { PROBE_TYPE, type HCProbe, type HealthCheck, type HealthCheckWriteData, type ProbeType, type WriteProbe } from '../../types/healthChecks';
 
 interface BffProbe {
@@ -101,9 +100,7 @@ function toHealthCheck(env: string, hc: BffHealthCheck): HealthCheck {
   };
 }
 
-const putProbes = async (componentId: string, releaseId: string, data: HealthCheckWriteData): Promise<HealthCheck> => {
-  const env = await envForRelease(componentId, releaseId);
-  if (!env) throw new Error('This integration is not deployed in the selected environment.');
+const putProbes = async (componentId: string, env: string, data: HealthCheckWriteData): Promise<HealthCheck> => {
   const livenessProbe = toBffProbe(data.probes.liveness_probe);
   const readinessProbe = toBffProbe(data.probes.readiness_probe);
   await bff.put(hcPath(componentId, env), { livenessProbe, readinessProbe });
@@ -111,19 +108,17 @@ const putProbes = async (componentId: string, releaseId: string, data: HealthChe
 };
 
 // An unconfigured environment reads as no health check at all, so the page shows its empty state.
-export const getHealthChecks = async (_orgUuid: string, _projectId: string, componentId: string, releaseId: string): Promise<HealthCheck[]> => {
-  const env = await envForRelease(componentId, releaseId);
-  if (!env) return [];
-  const hc = await bff.get<BffHealthCheck>(hcPath(componentId, env));
+export const getHealthChecks = async (_orgUuid: string, _projectId: string, componentId: string, _releaseId: string, environmentId: string): Promise<HealthCheck[]> => {
+  if (!environmentId) return [];
+  const hc = await bff.get<BffHealthCheck>(hcPath(componentId, environmentId));
   if (!hc?.livenessProbe && !hc?.readinessProbe) return [];
-  return [toHealthCheck(env, hc)];
+  return [toHealthCheck(environmentId, hc)];
 };
 
-export const createHealthCheck = (_orgUuid: string, _projectId: string, componentId: string, releaseId: string, _containerId: string, data: HealthCheckWriteData): Promise<HealthCheck> => putProbes(componentId, releaseId, data);
+export const createHealthCheck = (_orgUuid: string, _projectId: string, componentId: string, _releaseId: string, environmentId: string, _containerId: string, data: HealthCheckWriteData): Promise<HealthCheck> => putProbes(componentId, environmentId, data);
 
-export const updateHealthCheck = (_orgUuid: string, _projectId: string, componentId: string, releaseId: string, _containerId: string, _healthCheckId: string, data: HealthCheckWriteData): Promise<HealthCheck> => putProbes(componentId, releaseId, data);
+export const updateHealthCheck = (_orgUuid: string, _projectId: string, componentId: string, _releaseId: string, environmentId: string, _containerId: string, _healthCheckId: string, data: HealthCheckWriteData): Promise<HealthCheck> => putProbes(componentId, environmentId, data);
 
-export const deleteHealthCheck = async (_orgUuid: string, _projectId: string, componentId: string, releaseId: string, _containerId: string, _healthCheckId: string): Promise<void> => {
-  const env = await envForRelease(componentId, releaseId);
-  if (env) await bff.delete(hcPath(componentId, env));
+export const deleteHealthCheck = async (_orgUuid: string, _projectId: string, componentId: string, _releaseId: string, environmentId: string, _containerId: string, _healthCheckId: string): Promise<void> => {
+  if (environmentId) await bff.delete(hcPath(componentId, environmentId));
 };

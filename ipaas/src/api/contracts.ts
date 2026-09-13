@@ -576,10 +576,10 @@ export interface DevopsConfigsApi {
 }
 
 export interface HealthChecksApi {
-  getHealthChecks(orgUuid: string, projectId: string, componentId: string, releaseId: string): Promise<HealthCheck[]>;
-  createHealthCheck(orgUuid: string, projectId: string, componentId: string, releaseId: string, containerId: string, data: HealthCheckWriteData): Promise<HealthCheck>;
-  updateHealthCheck(orgUuid: string, projectId: string, componentId: string, releaseId: string, containerId: string, healthCheckId: string, data: HealthCheckWriteData): Promise<HealthCheck>;
-  deleteHealthCheck(orgUuid: string, projectId: string, componentId: string, releaseId: string, containerId: string, healthCheckId: string): Promise<void>;
+  getHealthChecks(orgUuid: string, projectId: string, componentId: string, releaseId: string, environmentId: string): Promise<HealthCheck[]>;
+  createHealthCheck(orgUuid: string, projectId: string, componentId: string, releaseId: string, environmentId: string, containerId: string, data: HealthCheckWriteData): Promise<HealthCheck>;
+  updateHealthCheck(orgUuid: string, projectId: string, componentId: string, releaseId: string, environmentId: string, containerId: string, healthCheckId: string, data: HealthCheckWriteData): Promise<HealthCheck>;
+  deleteHealthCheck(orgUuid: string, projectId: string, componentId: string, releaseId: string, environmentId: string, containerId: string, healthCheckId: string): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------

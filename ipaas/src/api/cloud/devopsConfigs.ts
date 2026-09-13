@@ -46,7 +46,6 @@
  */
 
 import { bff, items, q, seg, type ListResponse } from './_client';
-import { envForRelease } from './_releaseEnv';
 import type {
   ConfigMapWriteData,
   ConfigMountPath,
@@ -176,6 +175,14 @@ const pendingFiles = new Map<string, PendingFile>();
 const stageFile = (fileName: string, data: { data?: Record<string, string> }, sensitive: boolean): void => {
   pendingFiles.set(fileName, { content: data.data?.data ?? '', sensitive });
 };
+
+// Cloud has no release resource and no lookup route, so the env is recovered by matching release_name.
+interface BffReleaseBinding {
+  environment_id?: string;
+  release_name?: string;
+}
+const envForRelease = (componentId: string, releaseId: string): Promise<string> =>
+  bff.get<ListResponse<BffReleaseBinding>>(`/components/${seg(componentId)}/release-mgt-deployments`).then((r) => items(r).find((d) => d.release_name === releaseId)?.environment_id ?? '');
 
 // PUT the combined file mount, draining any staged content for this fileName.
 const putFile = (componentId: string, projectId: string, env: string, fileName: string, mountPath: string, secretIdSet: boolean): Promise<unknown> => {

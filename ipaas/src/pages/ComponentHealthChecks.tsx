@@ -62,7 +62,7 @@ export default function ComponentHealthChecks({ org, project, component }: Compo
   const containers = useMemo(() => release?.containers ?? [], [release]);
   const mainC = useMemo(() => mainContainer(containers), [containers]);
 
-  const { data: healthChecks = [], isLoading: loadingHc } = useHealthChecks(projectId, comp?.id, releaseId);
+  const { data: healthChecks = [], isLoading: loadingHc } = useHealthChecks(projectId, comp?.id, releaseId, envId);
 
   const syncError = healthChecks.find((hc) => hc.sync_status)?.sync_message;
 
@@ -120,6 +120,7 @@ export default function ComponentHealthChecks({ org, project, component }: Compo
             projectId={projectId}
             componentId={comp.id}
             releaseId={releaseId}
+            environmentId={envId}
             onClose={() => setCreating(false)}
             onSaved={(m) => {
               setCreating(false);
@@ -140,7 +141,7 @@ export default function ComponentHealthChecks({ org, project, component }: Compo
           healthChecks.map((hc) => {
             const container = containers.find((c) => c.ID === hc.container_id);
             if (!container) return null;
-            return <HealthCheckCard key={hc.ID} healthCheck={hc} container={container} projectId={projectId} componentId={comp.id} releaseId={releaseId} canManage={canManage} onNotify={notify} />;
+            return <HealthCheckCard key={hc.ID} healthCheck={hc} container={container} projectId={projectId} componentId={comp.id} releaseId={releaseId} environmentId={envId} canManage={canManage} onNotify={notify} />;
           })
         )}
       </PageContent>

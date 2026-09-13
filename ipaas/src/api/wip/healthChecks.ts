@@ -33,7 +33,7 @@ const releasePath = (componentId: string, releaseId: string): string => `${BASE}
 const containerHcPath = (componentId: string, releaseId: string, containerId: string, healthCheckId?: string): string =>
   `${releasePath(componentId, releaseId)}/container/${encodeURIComponent(containerId)}/health-check${healthCheckId ? `/${encodeURIComponent(healthCheckId)}` : ''}`;
 
-export async function getHealthChecks(orgUuid: string, projectId: string, componentId: string, releaseId: string): Promise<HealthCheck[]> {
+export async function getHealthChecks(orgUuid: string, projectId: string, componentId: string, releaseId: string, _environmentId: string): Promise<HealthCheck[]> {
   const res = await choreoClient.get<Wrapped<HealthCheck[]>>(`${releasePath(componentId, releaseId)}/health-check?${dq(orgUuid, projectId)}`);
   return res.data;
 }
@@ -50,16 +50,16 @@ function encodeWriteData(data: HealthCheckWriteData): HealthCheckWriteData {
   return { probes: { liveness_probe: encodeExec(data.probes.liveness_probe), readiness_probe: encodeExec(data.probes.readiness_probe) } };
 }
 
-export async function createHealthCheck(orgUuid: string, projectId: string, componentId: string, releaseId: string, containerId: string, data: HealthCheckWriteData): Promise<HealthCheck> {
+export async function createHealthCheck(orgUuid: string, projectId: string, componentId: string, releaseId: string, _environmentId: string, containerId: string, data: HealthCheckWriteData): Promise<HealthCheck> {
   const res = await choreoClient.post<Wrapped<HealthCheck>>(`${containerHcPath(componentId, releaseId, containerId)}?${dq(orgUuid, projectId)}`, encodeWriteData(data));
   return res.data;
 }
 
-export async function updateHealthCheck(orgUuid: string, projectId: string, componentId: string, releaseId: string, containerId: string, healthCheckId: string, data: HealthCheckWriteData): Promise<HealthCheck> {
+export async function updateHealthCheck(orgUuid: string, projectId: string, componentId: string, releaseId: string, _environmentId: string, containerId: string, healthCheckId: string, data: HealthCheckWriteData): Promise<HealthCheck> {
   const res = await choreoClient.put<Wrapped<HealthCheck>>(`${containerHcPath(componentId, releaseId, containerId, healthCheckId)}?${dq(orgUuid, projectId)}`, encodeWriteData(data));
   return res.data;
 }
 
-export async function deleteHealthCheck(orgUuid: string, projectId: string, componentId: string, releaseId: string, containerId: string, healthCheckId: string): Promise<void> {
+export async function deleteHealthCheck(orgUuid: string, projectId: string, componentId: string, releaseId: string, _environmentId: string, containerId: string, healthCheckId: string): Promise<void> {
   await choreoClient.delete<void>(`${containerHcPath(componentId, releaseId, containerId, healthCheckId)}?${dq(orgUuid, projectId)}`);
 }
