@@ -16,12 +16,114 @@
  * under the License.
  */
 
-import type { HealthCheck, HealthCheckWriteData } from '../../types/healthChecks';
+/** The BFF addresses probes per (component, environment) with no id, so the env stands in for every id devant carries. */
 
-// Health checks are a WIP-only devops surface; OpenChoreo has no equivalent BFF endpoint.
-const ni = (name: string): Promise<never> => Promise.reject(new Error(`[cloud] healthChecks.${name}: not implemented`));
+import { bff, seg } from './_client';
+import { envForRelease } from './_releaseEnv';
+import { PROBE_TYPE, type HCProbe, type HealthCheck, type HealthCheckWriteData, type ProbeType, type WriteProbe } from '../../types/healthChecks';
 
-export const getHealthChecks = (_orgUuid: string, _projectId: string, _componentId: string, _releaseId: string): Promise<HealthCheck[]> => ni('getHealthChecks');
-export const createHealthCheck = (_orgUuid: string, _projectId: string, _componentId: string, _releaseId: string, _containerId: string, _data: HealthCheckWriteData): Promise<HealthCheck> => ni('createHealthCheck');
-export const updateHealthCheck = (_orgUuid: string, _projectId: string, _componentId: string, _releaseId: string, _containerId: string, _healthCheckId: string, _data: HealthCheckWriteData): Promise<HealthCheck> => ni('updateHealthCheck');
-export const deleteHealthCheck = (_orgUuid: string, _projectId: string, _componentId: string, _releaseId: string, _containerId: string, _healthCheckId: string): Promise<void> => ni('deleteHealthCheck');
+interface BffProbe {
+  httpGet?: { path?: string; port?: number; httpHeaders?: { name: string; value: string }[] };
+  tcpSocket?: { port?: number };
+  exec?: { command?: string[] };
+  initialDelaySeconds?: number;
+  periodSeconds?: number;
+  timeoutSeconds?: number;
+  failureThreshold?: number;
+  successThreshold?: number;
+}
+
+interface BffHealthCheck {
+  environment?: string;
+  livenessProbe?: BffProbe;
+  readinessProbe?: BffProbe;
+  syncStatus?: string;
+  syncMessage?: string;
+}
+
+const hcPath = (componentId: string, env: string): string => `/components/${seg(componentId)}/environments/${seg(env)}/health-check`;
+
+// The BFF sets exactly one action; the page keys its form off the matching discriminator.
+function probeTypeOf(p: BffProbe): ProbeType {
+  if (p.httpGet) return PROBE_TYPE.HTTP_GET;
+  if (p.tcpSocket) return PROBE_TYPE.TCP;
+  if (p.exec) return PROBE_TYPE.EXEC;
+  return '';
+}
+
+// `type: ''` is what marks a probe unconfigured; the zeroed timings are never read.
+const emptyProbe = (): HCProbe => ({ type: '', probe: { failureThreshold: 0, initialDelaySeconds: 0, periodSeconds: 0, successThreshold: 0, timeoutSeconds: 0 } });
+
+function toHCProbe(p: BffProbe | undefined): HCProbe {
+  if (!p) return emptyProbe();
+  const type = probeTypeOf(p);
+  if (!type) return emptyProbe();
+  return {
+    type,
+    probe: {
+      failureThreshold: p.failureThreshold ?? 0,
+      initialDelaySeconds: p.initialDelaySeconds ?? 0,
+      periodSeconds: p.periodSeconds ?? 0,
+      successThreshold: p.successThreshold ?? 0,
+      timeoutSeconds: p.timeoutSeconds ?? 0,
+      httpGet: p.httpGet ? { path: p.httpGet.path ?? '', port: p.httpGet.port ?? 0, httpHeaders: p.httpGet.httpHeaders ?? [] } : undefined,
+      tcpSocket: p.tcpSocket ? { port: p.tcpSocket.port ?? 0 } : undefined,
+      exec: p.exec ? { command: p.exec.command ?? [] } : undefined,
+    },
+  };
+}
+
+// Only the selected mechanism is sent: the page zeroes the other two, and a zeroed port fails the schema.
+function toBffProbe(p: WriteProbe): BffProbe | undefined {
+  if (!('probe' in p) || !p.type) return undefined;
+  const { probe, type } = p;
+  const out: BffProbe = {
+    failureThreshold: probe.failureThreshold,
+    initialDelaySeconds: probe.initialDelaySeconds,
+    periodSeconds: probe.periodSeconds,
+    successThreshold: probe.successThreshold,
+    timeoutSeconds: probe.timeoutSeconds,
+  };
+  if (type === PROBE_TYPE.HTTP_GET) out.httpGet = { path: probe.httpGet?.path ?? '', port: probe.httpGet?.port ?? 0, httpHeaders: probe.httpGet?.httpHeaders ?? [] };
+  if (type === PROBE_TYPE.TCP) out.tcpSocket = { port: probe.tcpSocket?.port ?? 0 };
+  if (type === PROBE_TYPE.EXEC) out.exec = { command: probe.exec?.command ?? [] };
+  return out;
+}
+
+function toHealthCheck(env: string, hc: BffHealthCheck): HealthCheck {
+  return {
+    ID: env,
+    container_id: env,
+    app_environment_id: env,
+    probes: { liveness_probe: toHCProbe(hc.livenessProbe), readiness_probe: toHCProbe(hc.readinessProbe) },
+    sync_status: hc.syncStatus,
+    sync_message: hc.syncMessage,
+  };
+}
+
+const putProbes = async (componentId: string, releaseId: string, data: HealthCheckWriteData): Promise<HealthCheck> => {
+  const env = await envForRelease(componentId, releaseId);
+  if (!env) throw new Error('This integration is not deployed in the selected environment.');
+  const livenessProbe = toBffProbe(data.probes.liveness_probe);
+  const readinessProbe = toBffProbe(data.probes.readiness_probe);
+  await bff.put(hcPath(componentId, env), { livenessProbe, readinessProbe });
+  return toHealthCheck(env, { livenessProbe, readinessProbe });
+};
+
+// An unconfigured environment reads as no health check at all, so the page shows its empty state.
+export const getHealthChecks = async (_orgUuid: string, _projectId: string, componentId: string, releaseId: string): Promise<HealthCheck[]> => {
+  const env = await envForRelease(componentId, releaseId);
+  if (!env) return [];
+  const hc = await bff.get<BffHealthCheck>(hcPath(componentId, env));
+  if (!hc?.livenessProbe && !hc?.readinessProbe) return [];
+  return [toHealthCheck(env, hc)];
+};
+
+export const createHealthCheck = (_orgUuid: string, _projectId: string, componentId: string, releaseId: string, _containerId: string, data: HealthCheckWriteData): Promise<HealthCheck> => putProbes(componentId, releaseId, data);
+
+export const updateHealthCheck = (_orgUuid: string, _projectId: string, componentId: string, releaseId: string, _containerId: string, _healthCheckId: string, data: HealthCheckWriteData): Promise<HealthCheck> => putProbes(componentId, releaseId, data);
+
+export const deleteHealthCheck = async (_orgUuid: string, _projectId: string, componentId: string, releaseId: string, _containerId: string, _healthCheckId: string): Promise<void> => {
+  const env = await envForRelease(componentId, releaseId);
+  if (env) await bff.delete(hcPath(componentId, env));
+};

@@ -17,7 +17,7 @@
  */
 
 import { Box, Button, CircularProgress, Divider, Grid, Step, StepLabel, Stepper, Stack, Typography } from '@wso2/oxygen-ui';
-import { ArrowLeft } from '@wso2/oxygen-ui-icons-react';
+import { ArrowLeft, ArrowRight } from '@wso2/oxygen-ui-icons-react';
 import { useState, type JSX } from 'react';
 import ProbeConfigFields from './ProbeConfigFields';
 import ProbeSliderGroup, { type ProbeSliderValues } from './ProbeSliderGroup';
@@ -114,11 +114,11 @@ export default function CreateHealthCheckStepper({ container, projectId, compone
                 <Button variant="outlined" onClick={() => setActiveStep(0)} disabled={create.isPending}>
                   Back
                 </Button>
-                <Button variant="outlined" onClick={() => submit(false)} disabled={create.isPending || !isProbeFormValid(liveness)} startIcon={create.isPending ? <CircularProgress size={16} color="inherit" /> : undefined}>
-                  Skip
-                </Button>
                 <Button variant="contained" onClick={() => submit(true)} disabled={create.isPending || !isProbeFormValid(liveness) || !isProbeFormValid(readiness)} startIcon={create.isPending ? <CircularProgress size={16} color="inherit" /> : undefined}>
                   Save
+                </Button>
+                <Button variant="text" endIcon={create.isPending ? <CircularProgress size={16} color="inherit" /> : <ArrowRight size={16} />} onClick={() => submit(false)} disabled={create.isPending || !isProbeFormValid(liveness)}>
+                  Skip
                 </Button>
               </>
             )}

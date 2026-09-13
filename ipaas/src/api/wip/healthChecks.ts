@@ -17,7 +17,8 @@
  */
 
 import { choreoClient } from './httpClients';
-import type { HealthCheck, HealthCheckWriteData } from '../../types/healthChecks';
+import { encodeArrayItems } from '../../utils/containers';
+import type { HCProbe, HealthCheck, HealthCheckWriteData, WriteProbe } from '../../types/healthChecks';
 
 // Container health checks live on the devops service. The list is release-scoped;
 // create/update/delete are container-scoped. URLs + `{ data }` wrapper mirror Devant.
@@ -37,13 +38,25 @@ export async function getHealthChecks(orgUuid: string, projectId: string, compon
   return res.data;
 }
 
+// The devops API returns exec commands decoded but expects base64 on write.
+function encodeExec(p: WriteProbe): WriteProbe {
+  if (!('probe' in p)) return p;
+  const hc = p as HCProbe;
+  if (!hc.probe.exec?.command?.length) return hc;
+  return { ...hc, probe: { ...hc.probe, exec: { command: encodeArrayItems(hc.probe.exec.command) } } };
+}
+
+function encodeWriteData(data: HealthCheckWriteData): HealthCheckWriteData {
+  return { probes: { liveness_probe: encodeExec(data.probes.liveness_probe), readiness_probe: encodeExec(data.probes.readiness_probe) } };
+}
+
 export async function createHealthCheck(orgUuid: string, projectId: string, componentId: string, releaseId: string, containerId: string, data: HealthCheckWriteData): Promise<HealthCheck> {
-  const res = await choreoClient.post<Wrapped<HealthCheck>>(`${containerHcPath(componentId, releaseId, containerId)}?${dq(orgUuid, projectId)}`, data);
+  const res = await choreoClient.post<Wrapped<HealthCheck>>(`${containerHcPath(componentId, releaseId, containerId)}?${dq(orgUuid, projectId)}`, encodeWriteData(data));
   return res.data;
 }
 
 export async function updateHealthCheck(orgUuid: string, projectId: string, componentId: string, releaseId: string, containerId: string, healthCheckId: string, data: HealthCheckWriteData): Promise<HealthCheck> {
-  const res = await choreoClient.put<Wrapped<HealthCheck>>(`${containerHcPath(componentId, releaseId, containerId, healthCheckId)}?${dq(orgUuid, projectId)}`, data);
+  const res = await choreoClient.put<Wrapped<HealthCheck>>(`${containerHcPath(componentId, releaseId, containerId, healthCheckId)}?${dq(orgUuid, projectId)}`, encodeWriteData(data));
   return res.data;
 }
 

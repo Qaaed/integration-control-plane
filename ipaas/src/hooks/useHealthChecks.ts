@@ -18,15 +18,15 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createHealthCheck, deleteHealthCheck, getHealthChecks, updateHealthCheck } from '#api/healthChecks';
-import { IS_WIP } from '../features';
+import { IS_CLOUD, IS_WIP } from '../features';
 import type { HealthCheck, HealthCheckWriteData } from '../types/healthChecks';
 import { useOrgUuid } from './useOrgUuid';
 
 const ROOT = 'healthChecks';
 
-/** Health checks are a WIP-only devops surface (cloud/icp API stubs throw). */
+/** ICP has no devops backend for probes; its API functions still stub. */
 export function isHealthChecksEnabled(): boolean {
-  return IS_WIP;
+  return IS_WIP || IS_CLOUD;
 }
 
 export function useHealthChecks(projectId: string, componentId: string | undefined, releaseId: string | undefined) {
