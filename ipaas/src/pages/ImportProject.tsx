@@ -194,12 +194,15 @@ export default function ImportProject(scope: OrgScope): JSX.Element {
   };
 
   const renderHandlerHelperText = () => {
+    // handlerError first: it is a fault in the value itself (reserved, malformed), which
+    // stands regardless of what the availability call says about uniqueness.
+    if (handlerError) return handlerError;
     if (isCheckingAvailability) return 'Checking availability…';
     if (handlerTaken) {
       const alt = availability?.alternateHandlerCandidate;
       return alt ? `This name is already taken. Try "${alt}" instead.` : handlerTaken;
     }
-    return handlerError ?? 'Auto-generated identifier';
+    return 'Auto-generated identifier';
   };
 
   const orgOptions = userRepos?.map((o) => o.orgName) ?? [];

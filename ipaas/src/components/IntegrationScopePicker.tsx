@@ -23,7 +23,8 @@ import { useAppNavigate } from '../hooks/useAppNavigate';
 import { useComponents } from '../hooks/useComponents';
 import { useProjectId, useProjects } from '../hooks/useProjects';
 import { newComponentUrl, newProjectUrl } from '../nav';
-import { actionItemSx, containerSx, goButtonSx, smallSelectLabelSx, subtitleSx, titleSx } from './IntegrationScopePicker.styles';
+import { actionItemSx, containerSx, goButtonSx, subtitleSx, titleSx } from './IntegrationScopePicker.styles';
+import { SMALL_SELECT_LABEL_SX } from '../constants/styles';
 import { componentUrl } from '../paths';
 
 const CREATE = '__create__';
@@ -80,7 +81,7 @@ export default function IntegrationScopePicker({ org, project, segment }: Integr
           fullWidth
           size="small"
           label="Project"
-          sx={smallSelectLabelSx}
+          sx={SMALL_SELECT_LABEL_SX}
           value={projectHandler}
           onChange={(e) => {
             const value = e.target.value;
@@ -109,7 +110,7 @@ export default function IntegrationScopePicker({ org, project, segment }: Integr
           fullWidth
           size="small"
           label="Integration"
-          sx={smallSelectLabelSx}
+          sx={SMALL_SELECT_LABEL_SX}
           value={componentHandler}
           disabled={!projectHandler}
           onChange={(e) => {

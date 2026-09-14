@@ -20,6 +20,7 @@ import { Box, Button, PageContent, Stack, Typography } from '@wso2/oxygen-ui';
 import { ArrowLeft } from '@wso2/oxygen-ui-icons-react';
 import type { JSX } from 'react';
 import { useAppNavigate } from '../hooks/useAppNavigate';
+import { artSx, descriptionSx, pageSx, textStackSx } from './ComingSoon.styles';
 
 const HEADING = 'Coming Soon';
 
@@ -33,30 +34,11 @@ export default function ComingSoon({ title = HEADING, description = 'This featur
   const navigate = useAppNavigate();
 
   return (
-    <PageContent
-      sx={{
-        display: 'flex',
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-      <Stack alignItems="center" gap={3} sx={{ maxWidth: 480, textAlign: 'center' }}>
+    <PageContent sx={pageSx}>
+      <Stack alignItems="center" gap={3} sx={textStackSx}>
         {/* Illustration: the wait itself — a dotted ring drifting round a clock whose second
             hand sweeps. Sized tight to the art so the text sits close beneath it. */}
-        <Box
-          sx={{
-            color: 'primary.main',
-            width: 180,
-            maxWidth: '100%',
-            '& .cs-ring, & .cs-second': { transformBox: 'view-box', transformOrigin: '100px 100px' },
-            '& .cs-ring': { animation: 'csRingSpin 40s linear infinite' },
-            '& .cs-second': { animation: 'csSecondSweep 8s linear infinite' },
-            '@keyframes csRingSpin': { to: { transform: 'rotate(360deg)' } },
-            '@keyframes csSecondSweep': { to: { transform: 'rotate(360deg)' } },
-            '@media (prefers-reduced-motion: reduce)': {
-              '& .cs-ring, & .cs-second': { animation: 'none' },
-            },
-          }}>
+        <Box sx={artSx}>
           <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" width="100%" height="auto" role="img" aria-label="A clock, waiting">
             {/* Concentric wash */}
             <circle cx="100" cy="100" r="92" fill="currentColor" fillOpacity="0.04" />
@@ -98,7 +80,7 @@ export default function ComingSoon({ title = HEADING, description = 'This featur
           <Typography variant="h4" fontWeight={700}>
             {title}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 380 }}>
+          <Typography variant="body2" color="text.secondary" sx={descriptionSx}>
             {description}
           </Typography>
         </Stack>

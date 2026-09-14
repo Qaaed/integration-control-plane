@@ -31,6 +31,7 @@ import type { ComponentScope } from '../nav';
 import type { EnvEndpoint } from '../types/component';
 
 import NotDeployedAlert from '../components/NotDeployedAlert';
+import { PILL_SELECT_SX } from '../constants/styles';
 const TEST_KEY_HEADER = 'test-key';
 
 /** Network-visibility URL resolvers (mirrors the endpoint URLs panel). */
@@ -99,12 +100,7 @@ export default function McpTest(scope: ComponentScope): JSX.Element {
   }
 
   const envSelector = environments.length > 1 && (
-    <Select
-      size="small"
-      value={selectedEnvId}
-      onChange={(e) => setSelectedEnvId(e.target.value as string)}
-      inputProps={{ 'aria-label': 'Environment' }}
-      sx={{ borderRadius: 5, fontSize: '0.8125rem', '& .MuiOutlinedInput-notchedOutline': { borderRadius: 5 }, '& .MuiSelect-select': { py: 0.5, px: 1.5 }, minWidth: 140 }}>
+    <Select size="small" value={selectedEnvId} onChange={(e) => setSelectedEnvId(e.target.value as string)} inputProps={{ 'aria-label': 'Environment' }} sx={{ ...PILL_SELECT_SX, minWidth: 140 }}>
       {environments.map((env) => (
         <MenuItem key={env.id} value={env.id}>
           {env.name}

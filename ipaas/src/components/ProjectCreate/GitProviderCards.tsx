@@ -72,9 +72,6 @@ function InfoCard({ icon, title, subtitle, onClick, disabled = false }: { icon: 
 export default function GitProviderCards({ onGitHubSelect, onPublicSelect, credentials, onCredentialSelect, onCreateCredential }: GitProviderCardsProps): JSX.Element {
   // Cloud has no credential-based import yet, so those cards stay "coming soon" even when a caller wires a handler.
   const credentialsEnabled = !!onCredentialSelect && !IS_CLOUD;
-  // Cloud only: private GitHub needs the platform GitHub App, so environments
-  // without a configured client id can only import public repos.
-  const gitHubEnabled = !IS_CLOUD || !!window.API_CONFIG.githubAppClientId;
 
   const credentialCard = (provider: GitProvider) => (
     <CredentialSelectCard
@@ -105,13 +102,9 @@ export default function GitProviderCards({ onGitHubSelect, onPublicSelect, crede
   return (
     <Stack direction="row" gap={2} alignItems="stretch">
       {/* GitHub */}
-      {gitHubEnabled ? (
-        <Box sx={{ flex: 1 }}>
-          <InfoCard icon={<GitHub size={30} />} title="Authorize With GitHub" subtitle="Private GitHub repository" onClick={onGitHubSelect} />
-        </Box>
-      ) : (
-        comingSoonCard(<GitHub size={30} />, 'Authorize With GitHub', 'Connect a private GitHub repository', 'Private GitHub repositories are not enabled in this environment')
-      )}
+      <Box sx={{ flex: 1 }}>
+        <InfoCard icon={<GitHub size={30} />} title="Authorize With GitHub" subtitle="Private GitHub repository" onClick={onGitHubSelect} />
+      </Box>
 
       {/* Bitbucket */}
       {credentialsEnabled ? (

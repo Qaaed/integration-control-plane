@@ -22,6 +22,8 @@ import type { ReactNode } from 'react';
 import { useAppNavigate } from '../hooks/useAppNavigate';
 import type { DeploymentTrack } from '../types/component';
 import { IS_CLOUD } from '../features';
+import { PILL_SELECT_SX } from '../constants/styles';
+import { apiVersionChipSx, bandSx, barCaptionSx, barSx, menuActionButtonSx, menuActionsRowSx, tooltipAnchorSx, trackLabelSx } from './DeploymentTrackBar.styles';
 
 interface DeploymentTrackBarProps {
   tracks: DeploymentTrack[];
@@ -44,7 +46,7 @@ function normalizeVersion(v: string): string {
 function TrackLabel({ track, versionView }: { track: DeploymentTrack; versionView?: boolean }) {
   if (versionView) {
     return (
-      <Typography variant="body2" sx={{ fontSize: '0.8125rem' }}>
+      <Typography variant="body2" sx={trackLabelSx}>
         {track.apiVersion ? normalizeVersion(track.apiVersion) : track.id}
       </Typography>
     );
@@ -52,34 +54,13 @@ function TrackLabel({ track, versionView }: { track: DeploymentTrack; versionVie
   return (
     <Stack direction="row" alignItems="center" gap={0.75}>
       {track.branch && <GitBranch size={13} />}
-      <Typography variant="body2" sx={{ fontSize: '0.8125rem' }}>
+      <Typography variant="body2" sx={trackLabelSx}>
         {track.branch || 'None'}
       </Typography>
-      {track.apiVersion && <Chip label={`API ${normalizeVersion(track.apiVersion)}`} size="small" variant="outlined" color="primary" sx={{ height: 20, fontSize: '0.68rem', fontWeight: 500 }} />}
+      {track.apiVersion && <Chip label={`API ${normalizeVersion(track.apiVersion)}`} size="small" variant="outlined" color="primary" sx={apiVersionChipSx} />}
     </Stack>
   );
 }
-
-/** Full-bleed band: the rule and tint span the viewport, like the page header above it. */
-const bandSx = {
-  borderBottom: '1px solid',
-  borderColor: 'divider',
-  bgcolor: 'background.acrylic',
-  backdropFilter: 'blur(3px)',
-} as const;
-
-/** Inner row, matching PageContent's centred 1400px box so the environment selector's
- *  left edge lands on the PageTitle's start point at every viewport width. */
-const barSx = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 2,
-  width: '100%',
-  maxWidth: 1400,
-  mx: 'auto',
-  px: 8,
-  minHeight: 48,
-} as const;
 
 export default function DeploymentTrackBar({ tracks, selectedId, onChange, orgHandler, projectHandler, componentHandler, versionView, extra }: DeploymentTrackBarProps) {
   const navigate = useAppNavigate();
@@ -100,11 +81,11 @@ export default function DeploymentTrackBar({ tracks, selectedId, onChange, orgHa
       <Box sx={barSx}>
         {/* Label + tooltip */}
         <Stack direction="row" alignItems="center" gap={0.5}>
-          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, fontSize: '0.8125rem' }}>
+          <Typography variant="body2" color="text.secondary" sx={barCaptionSx}>
             Deployment Track
           </Typography>
           <Tooltip title={TOOLTIP_TEXT} placement="right">
-            <Box role="img" aria-label={TOOLTIP_TEXT} sx={{ display: 'flex', alignItems: 'center', color: 'text.disabled', cursor: 'help' }}>
+            <Box role="img" aria-label={TOOLTIP_TEXT} sx={tooltipAnchorSx}>
               <HelpCircle size={13} aria-hidden="true" />
             </Box>
           </Tooltip>
@@ -121,15 +102,9 @@ export default function DeploymentTrackBar({ tracks, selectedId, onChange, orgHa
             return <TrackLabel track={track} versionView={versionView} />;
           }}
           inputProps={{ 'aria-label': 'Deployment Track' }}
-          sx={{
-            fontSize: '0.8125rem',
-            borderRadius: 5,
-            '& .MuiOutlinedInput-notchedOutline': { borderRadius: 5 },
-            '& .MuiSelect-select': { py: 0.5, px: 1.5 },
-            minWidth: 160,
-          }}>
+          sx={{ ...PILL_SELECT_SX, minWidth: 160 }}>
           {/* Create New / View All actions */}
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.5, py: 0.5 }} onKeyDown={(e) => e.stopPropagation()}>
+          <Box sx={menuActionsRowSx} onKeyDown={(e) => e.stopPropagation()}>
             <Button
               size="small"
               startIcon={<Plus size={13} />}
@@ -137,7 +112,7 @@ export default function DeploymentTrackBar({ tracks, selectedId, onChange, orgHa
                 e.stopPropagation();
                 navigate(`${basePath}/new`);
               }}
-              sx={{ fontSize: '0.75rem', textTransform: 'none', px: 0.5 }}>
+              sx={menuActionButtonSx}>
               Create New
             </Button>
             <Button
@@ -146,7 +121,7 @@ export default function DeploymentTrackBar({ tracks, selectedId, onChange, orgHa
                 e.stopPropagation();
                 navigate(basePath);
               }}
-              sx={{ fontSize: '0.75rem', textTransform: 'none', px: 0.5 }}>
+              sx={menuActionButtonSx}>
               View All
             </Button>
           </Box>

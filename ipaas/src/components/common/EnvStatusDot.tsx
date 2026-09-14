@@ -18,16 +18,16 @@
 
 import { Box } from '@wso2/oxygen-ui';
 import type { JSX } from 'react';
+import { DEPLOYMENT_STATUS_DOT } from '../../constants/deploymentStatusDot';
 import { useComponentDeployment } from '../../hooks/useDeployments';
 
-/** Anything unrecognised — including an absent deployment — reads as "not deployed". */
-const ENV_STATUS_DOT: Record<string, string> = {
-  ACTIVE: 'success.main',
-  ERROR: 'error.main',
+/**
+ * FAILED is not in the shared table — only this surface has seen the API return it,
+ * and adding it there would start labelling it on the Overview card, which today
+ * renders nothing for a status it does not recognise.
+ */
+const EXTRA_DOT_COLORS: Record<string, string> = {
   FAILED: 'error.main',
-  IN_PROGRESS: 'warning.main',
-  SUSPENDED: 'text.disabled',
-  NOT_DEPLOYED: 'text.disabled',
 };
 
 export interface EnvStatusDotProps {
@@ -48,5 +48,7 @@ export interface EnvStatusDotProps {
 export default function EnvStatusDot({ orgHandler, orgUuid, componentId, versionId, envId }: EnvStatusDotProps): JSX.Element {
   const { data: deployment } = useComponentDeployment(orgHandler, orgUuid, componentId, versionId, envId);
   const status = deployment?.deploymentStatusV2?.toUpperCase() ?? '';
-  return <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: ENV_STATUS_DOT[status] ?? 'text.disabled', flexShrink: 0 }} />;
+  // Anything unrecognised — including an absent deployment — reads as "not deployed".
+  const color = DEPLOYMENT_STATUS_DOT[status]?.dotColor ?? EXTRA_DOT_COLORS[status] ?? 'text.disabled';
+  return <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />;
 }

@@ -19,6 +19,7 @@
 import { MenuItem, Select, Stack } from '@wso2/oxygen-ui';
 import type { JSX } from 'react';
 import EnvStatusDot from './EnvStatusDot';
+import { PILL_SELECT_SX } from '../../constants/styles';
 
 interface EnvironmentSelectProps {
   environments: { id: string; name: string }[];
@@ -66,13 +67,7 @@ export default function EnvironmentSelect({ environments, value, onChange, deplo
           : undefined
       }
       inputProps={{ 'aria-label': 'Environment' }}
-      sx={{
-        fontSize: '0.8125rem',
-        borderRadius: 5,
-        '& .MuiOutlinedInput-notchedOutline': { borderRadius: 5 },
-        '& .MuiSelect-select': { py: 0.5, px: 1.5 },
-        minWidth: 60,
-      }}>
+      sx={{ ...PILL_SELECT_SX, minWidth: 60 }}>
       {environments.map((e) => (
         <MenuItem key={e.id} value={e.id}>
           {label(e.id, e.name)}
