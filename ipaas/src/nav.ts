@@ -334,10 +334,10 @@ const NAV_ALL: Record<Level, NavEntry[]> = {
     { key: 'logs', navId: 'logs', segment: 'logs', parent: 'observability' },
     { key: 'metrics', navId: 'metrics', segment: 'metrics', parent: 'observability' },
     { key: 'connections', navId: 'connections', segment: 'admin/connections', parent: 'admin' },
-    { key: 'runtime', navId: 'runtime', segment: 'runtimes', parent: 'admin' },
-    { key: 'containers', navId: 'containers', segment: 'admin/containers', parent: 'admin' },
-    { key: 'configs-secrets', navId: 'configs-secrets', segment: 'admin/configs', parent: 'admin' },
-    { key: 'health-checks', navId: 'health-checks', segment: 'admin/health-checks', parent: 'admin' },
+    { key: 'runtime', navId: 'runtime', segment: 'runtimes', parent: 'operate' },
+    { key: 'containers', navId: 'containers', segment: 'admin/containers', parent: 'operate' },
+    { key: 'configs-secrets', navId: 'configs-secrets', segment: 'admin/configs', parent: 'operate' },
+    { key: 'health-checks', navId: 'health-checks', segment: 'admin/health-checks', parent: 'operate' },
     { key: 'scaling', navId: 'scaling', segment: 'admin/scaling', parent: 'admin' },
     { key: 'storage', navId: 'storage', segment: 'admin/storage', parent: 'admin' },
     { key: 'external-ci', navId: 'external-ci', segment: 'admin/external-ci', parent: 'admin' },
@@ -400,8 +400,7 @@ const CLOUD_HIDDEN_NAV_IDS = new Set([
 // would auto-expand a group the item does not live in whenever Settings is opened.
 const CLOUD_TOP_LEVEL_NAV_IDS = new Set(['org-settings', 'proj-settings']);
 
-const forCloud = (entries: NavEntry[]): NavEntry[] =>
-  entries.filter((e) => !CLOUD_HIDDEN_NAV_IDS.has(e.navId)).map((e) => (CLOUD_TOP_LEVEL_NAV_IDS.has(e.navId) ? { ...e, parent: undefined } : e));
+const forCloud = (entries: NavEntry[]): NavEntry[] => entries.filter((e) => !CLOUD_HIDDEN_NAV_IDS.has(e.navId)).map((e) => (CLOUD_TOP_LEVEL_NAV_IDS.has(e.navId) ? { ...e, parent: undefined } : e));
 
 const NAV: Record<Level, NavEntry[]> = IS_CLOUD
   ? {

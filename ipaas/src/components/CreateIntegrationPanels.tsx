@@ -24,6 +24,7 @@ import { useCreateComponent } from '../hooks/useComponents';
 import { useChoreoSampleImages } from '../hooks/useRepository';
 import { generateAndSaveGitHubState, validateAndClearGitHubState } from '../auth/tokenManager';
 import { IS_CLOUD } from '../features';
+import { providerComingSoonLabel } from '../constants/gitProviders';
 import { useOrgUuid } from '../hooks/useOrgUuid';
 import { useAuth } from '../auth/AuthContext';
 import { useFeaturePreview } from '../contexts/FeaturePreviewContext';
@@ -342,20 +343,29 @@ export default function CreateIntegrationPanels({ scope, heading }: CreateIntegr
                           <GitHub size={aiBuilderEnabled ? 23 : 24} />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Import from GitLab" placement="top">
-                        <IconButton aria-label="Import from GitLab" onClick={() => navigate(importUrl, { state: { provider: GitProvider.GITLAB_SELF_MANAGED } })} sx={PROVIDER_ICON_SX}>
-                          <GitLabIcon size={aiBuilderEnabled ? 21 : 22} />
-                        </IconButton>
+                      <Tooltip title={IS_CLOUD ? providerComingSoonLabel(GitProvider.GITLAB_SELF_MANAGED) : 'Import from GitLab'} placement="top">
+                        {/* A disabled IconButton fires no pointer events, so the Tooltip needs a live wrapper. */}
+                        <Box component="span" sx={{ display: 'inline-flex' }}>
+                          <IconButton aria-label="Import from GitLab" disabled={IS_CLOUD} onClick={() => navigate(importUrl, { state: { provider: GitProvider.GITLAB_SELF_MANAGED } })} sx={PROVIDER_ICON_SX}>
+                            <GitLabIcon size={aiBuilderEnabled ? 21 : 22} />
+                          </IconButton>
+                        </Box>
                       </Tooltip>
-                      <Tooltip title="Import from Bitbucket" placement="top">
-                        <IconButton aria-label="Import from Bitbucket" onClick={() => navigate(importUrl, { state: { provider: GitProvider.BITBUCKET_CLOUD } })} sx={PROVIDER_ICON_SX}>
-                          <BitbucketIcon size={aiBuilderEnabled ? 21 : 22} />
-                        </IconButton>
+                      <Tooltip title={IS_CLOUD ? providerComingSoonLabel(GitProvider.BITBUCKET_CLOUD) : 'Import from Bitbucket'} placement="top">
+                        {/* A disabled IconButton fires no pointer events, so the Tooltip needs a live wrapper. */}
+                        <Box component="span" sx={{ display: 'inline-flex' }}>
+                          <IconButton aria-label="Import from Bitbucket" disabled={IS_CLOUD} onClick={() => navigate(importUrl, { state: { provider: GitProvider.BITBUCKET_CLOUD } })} sx={PROVIDER_ICON_SX}>
+                            <BitbucketIcon size={aiBuilderEnabled ? 21 : 22} />
+                          </IconButton>
+                        </Box>
                       </Tooltip>
-                      <Tooltip title="Import from Azure" placement="top">
-                        <IconButton aria-label="Import from Azure" onClick={() => navigate(importUrl, { state: { provider: GitProvider.AZURE_DEVOPS } })} sx={PROVIDER_ICON_SX}>
-                          <AzureDevOpsIcon size={aiBuilderEnabled ? 21 : 22} />
-                        </IconButton>
+                      <Tooltip title={IS_CLOUD ? providerComingSoonLabel(GitProvider.AZURE_DEVOPS) : 'Import from Azure'} placement="top">
+                        {/* A disabled IconButton fires no pointer events, so the Tooltip needs a live wrapper. */}
+                        <Box component="span" sx={{ display: 'inline-flex' }}>
+                          <IconButton aria-label="Import from Azure" disabled={IS_CLOUD} onClick={() => navigate(importUrl, { state: { provider: GitProvider.AZURE_DEVOPS } })} sx={PROVIDER_ICON_SX}>
+                            <AzureDevOpsIcon size={aiBuilderEnabled ? 21 : 22} />
+                          </IconButton>
+                        </Box>
                       </Tooltip>
                     </>
                   )}

@@ -24,6 +24,7 @@ import { useDataPlanes } from '../hooks/useDataPlanes';
 import { useAddEnvironment } from '../hooks/useEnvironments';
 import { useOrgUuid } from '../hooks/useOrgUuid';
 import { IS_CLOUD } from '../features';
+import BusyFields from '../components/common/BusyFields';
 import { buildEnvironmentVhost, EnvironmentValidationError } from '../utils/environment';
 import { resourceUrl, type OrgScope } from '../nav';
 
@@ -101,6 +102,7 @@ export default function CreateEnvironment(scope: OrgScope): JSX.Element {
         </Alert>
       )}
 
+      <BusyFields busy={create.isPending}>
       <Stack gap={3} sx={{ maxWidth: 600, mb: 4 }}>
         <TextField label="Name" required placeholder="e.g., staging" value={name} onChange={(e) => setName(e.target.value)} fullWidth />
         <Box>
@@ -146,6 +148,7 @@ export default function CreateEnvironment(scope: OrgScope): JSX.Element {
         )}
         <FormControlLabel control={<Checkbox checked={critical} onChange={(_, v) => setCritical(v)} />} label="Mark as Critical Environment" />
       </Stack>
+      </BusyFields>
 
       <Stack direction="row" gap={2}>
         <Button variant="outlined" onClick={() => navigate(listUrl)} disabled={create.isPending}>

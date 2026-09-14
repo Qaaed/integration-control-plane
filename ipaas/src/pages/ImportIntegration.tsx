@@ -22,6 +22,7 @@ import { MENU_SEARCH_THRESHOLD } from '../components/MenuSearchField';
 import { useState, useEffect, useMemo, useRef, type JSX } from 'react';
 import { useLocation } from 'react-router';
 import { useAppNavigate } from '../hooks/useAppNavigate';
+import BusyFields from '../components/common/BusyFields';
 import { useCreateComponent } from '../hooks/useComponents';
 import type { DisplayType } from '../types/component';
 import { useGitHubUserRepos, useRepoBranches, useRepoContents, useRepoMetadata, useComponentNameAvailability } from '../hooks/useRepository';
@@ -822,86 +823,88 @@ export default function ImportIntegration(scope: ProjectScope): JSX.Element {
       )}
 
       <Box sx={{ '& .MuiFormLabel-asterisk': { color: 'error.main' } }}>
-        {/* Row 1 — source pickers (mode-aware) + Branch + Directory */}
-        {renderRepoPickers()}
+        <BusyFields busy={createComponent.isPending}>
+          {/* Row 1 — source pickers (mode-aware) + Branch + Directory */}
+          {renderRepoPickers()}
 
-        {/* Row 2 — Display Name + auto-generated Name */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <TextField
-              label="Display Name"
-              required
-              value={displayName}
-              onChange={(e) => {
-                setDisplayName(e.target.value);
-                displayNameAutoRef.current = false;
-              }}
-              fullWidth
-              error={!!displayName.trim() && !handlerValid}
-              helperText={displayName.trim() && !handlerValid ? 'Must be 3–64 chars' : 'Display Name of the Integration'}
-            />
+          {/* Row 2 — Display Name + auto-generated Name */}
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <TextField
+                label="Display Name"
+                required
+                value={displayName}
+                onChange={(e) => {
+                  setDisplayName(e.target.value);
+                  displayNameAutoRef.current = false;
+                }}
+                fullWidth
+                error={!!displayName.trim() && !handlerValid}
+                helperText={displayName.trim() && !handlerValid ? 'Must be 3–64 chars' : 'Display Name of the Integration'}
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 3 }}>
+              <TextField
+                label="Name"
+                value={effectiveHandler}
+                fullWidth
+                disabled
+                helperText={isCheckingName ? 'Checking availability…' : 'Auto-generated identifier'}
+                slotProps={{
+                  input: {
+                    endAdornment: isCheckingName ? (
+                      <InputAdornment position="end">
+                        <CircularProgress size={16} />
+                      </InputAdornment>
+                    ) : undefined,
+                  },
+                }}
+              />
+            </Grid>
           </Grid>
 
-          <Grid size={{ xs: 12, md: 3 }}>
-            <TextField
-              label="Name"
-              value={effectiveHandler}
-              fullWidth
-              disabled
-              helperText={isCheckingName ? 'Checking availability…' : 'Auto-generated identifier'}
-              slotProps={{
-                input: {
-                  endAdornment: isCheckingName ? (
-                    <InputAdornment position="end">
-                      <CircularProgress size={16} />
-                    </InputAdornment>
-                  ) : undefined,
-                },
-              }}
-            />
+          {/* Row 3 — Description */}
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField label="Description" value={description} onChange={(e) => setDescription(e.target.value)} fullWidth multiline minRows={1} helperText="Brief description" />
+            </Grid>
           </Grid>
-        </Grid>
 
-        {/* Row 3 — Description */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <TextField label="Description" value={description} onChange={(e) => setDescription(e.target.value)} fullWidth multiline minRows={1} helperText="Brief description" />
-          </Grid>
-        </Grid>
+          {/* Technology */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h5" sx={{ mb: 2, mt: 5 }}>
+              Technology
+            </Typography>
+            <TechnologySelector selected={selectedTechnology} detectedMode={detectedMode} enabled={showBranchAndSubPath} onSelect={setSelectedTechnology} />
+            {IS_CLOUD && selectedTechnology === 'BI' && (
+              <>
+                {!ballerinaTokenStatus?.configured && (
+                  <Stack direction="row" alignItems="center" gap={1} sx={{ mt: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Depend on private packages?
+                    </Typography>
+                    <Link component="button" type="button" variant="body2" underline="hover" onClick={() => setBallerinaDrawerOpen(true)} sx={{ fontWeight: 600 }}>
+                      Add a Ballerina Central token
+                    </Link>
+                  </Stack>
+                )}
+                <BallerinaCentralTokenDrawer open={ballerinaDrawerOpen} onClose={() => setBallerinaDrawerOpen(false)} tokenInput={ballerinaTokenInput} onTokenInputChange={setBallerinaTokenInput} />
+              </>
+            )}
+          </Box>
 
-        {/* Technology */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h5" sx={{ mb: 2, mt: 5 }}>
-            Technology
-          </Typography>
-          <TechnologySelector selected={selectedTechnology} detectedMode={detectedMode} enabled={showBranchAndSubPath} onSelect={setSelectedTechnology} />
-          {IS_CLOUD && selectedTechnology === 'BI' && (
-            <>
-              {!ballerinaTokenStatus?.configured && (
-                <Stack direction="row" alignItems="center" gap={1} sx={{ mt: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Depend on private packages?
-                  </Typography>
-                  <Link component="button" type="button" variant="body2" underline="hover" onClick={() => setBallerinaDrawerOpen(true)} sx={{ fontWeight: 600 }}>
-                    Add a Ballerina Central token
-                  </Link>
-                </Stack>
-              )}
-              <BallerinaCentralTokenDrawer open={ballerinaDrawerOpen} onClose={() => setBallerinaDrawerOpen(false)} tokenInput={ballerinaTokenInput} onTokenInputChange={setBallerinaTokenInput} />
-            </>
-          )}
-        </Box>
-
-        {/* Integration Type */}
-        <Box sx={{ mb: 5 }}>
-          <Typography variant="h5" sx={{ mb: 2, mt: 5 }}>
-            Integration Type
-          </Typography>
-          <IntegrationTypeSelector selected={selectedIntegrationType} onSelect={setSelectedIntegrationType} />
-        </Box>
+          {/* Integration Type */}
+          <Box sx={{ mb: 5 }}>
+            <Typography variant="h5" sx={{ mb: 2, mt: 5 }}>
+              Integration Type
+            </Typography>
+            <IntegrationTypeSelector selected={selectedIntegrationType} onSelect={setSelectedIntegrationType} />
+          </Box>
+        </BusyFields>
 
         <Stack direction="row" gap={2} sx={{ mt: 2 }}>
-          <Button variant="outlined" onClick={() => navigate(backUrl)}>
+          <Button variant="outlined" onClick={() => navigate(backUrl)} disabled={createComponent.isPending}>
             Cancel
           </Button>
           <Button variant="contained" onClick={handleSubmit} disabled={!canSubmit || createComponent.isPending}>

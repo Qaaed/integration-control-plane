@@ -89,7 +89,6 @@ const Markdown = lazy(() => import('../components/Markdown'));
 
 const FREE_COMPONENT_LIMIT = 5;
 
-
 const APIM_SUBSCRIBERS_ERROR_CODE = 'APIM_SUBSCRIBERS';
 
 /** Splits an integration's active API subscribers into internal (Choreo-managed test apps) vs external, deduped by application. */
@@ -446,7 +445,7 @@ function IntegrationsTable({
                   <ListingTable.Row>
                     <ListingTable.Cell>Name</ListingTable.Cell>
                     <ListingTable.Cell>Description</ListingTable.Cell>
-                    <ListingTable.Cell>Type</ListingTable.Cell>
+                    <ListingTable.Cell sx={{ minWidth: 180, whiteSpace: 'nowrap' }}>Type</ListingTable.Cell>
                     <ListingTable.Cell>Last Updated</ListingTable.Cell>
                     <Authorized permissions={Permissions.INTEGRATION_MANAGE}>
                       <ListingTable.Cell width={60} align="right">
@@ -483,12 +482,18 @@ function IntegrationsTable({
                           </ListingTable.Cell>
                           <ListingTable.Cell>
                             {!init && (
-                              <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 200 }}>
+                              <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 150 }}>
                                 {c.description?.trim() || ''}
                               </Typography>
                             )}
                           </ListingTable.Cell>
-                          <ListingTable.Cell>{!init && <Typography variant="body2">{getDisplayLabel(c.displayType ?? '', c.componentSubType ?? null)}</Typography>}</ListingTable.Cell>
+                          <ListingTable.Cell>
+                            {!init && (
+                              <Typography variant="body2" noWrap>
+                                {getDisplayLabel(c.displayType ?? '', c.componentSubType ?? null)}
+                              </Typography>
+                            )}
+                          </ListingTable.Cell>
                           <ListingTable.Cell>
                             {!init && !deleting && (
                               <Typography variant="body2" color="text.secondary">
@@ -557,7 +562,7 @@ function IntegrationsTable({
                     <ListingTable.Row>
                       <ListingTable.Cell>Name</ListingTable.Cell>
                       <ListingTable.Cell>Description</ListingTable.Cell>
-                      <ListingTable.Cell>Type</ListingTable.Cell>
+                      <ListingTable.Cell sx={{ minWidth: 180, whiteSpace: 'nowrap' }}>Type</ListingTable.Cell>
                       <ListingTable.Cell>Last Updated</ListingTable.Cell>
                       {/* No Action column: another platform owns these, so none of them are actionable from here. */}
                     </ListingTable.Row>
@@ -573,12 +578,18 @@ function IntegrationsTable({
                             </ListingTable.Cell>
                             <ListingTable.Cell>
                               {!init && (
-                                <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 200 }}>
+                                <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 150 }}>
                                   {c.description?.trim() || ''}
                                 </Typography>
                               )}
                             </ListingTable.Cell>
-                            <ListingTable.Cell>{!init && <Typography variant="body2">{getDisplayLabel(c.displayType ?? '', c.componentSubType ?? null)}</Typography>}</ListingTable.Cell>
+                            <ListingTable.Cell>
+                              {!init && (
+                                <Typography variant="body2" noWrap>
+                                  {getDisplayLabel(c.displayType ?? '', c.componentSubType ?? null)}
+                                </Typography>
+                              )}
+                            </ListingTable.Cell>
                             <ListingTable.Cell>
                               {!init && (
                                 <Typography variant="body2" color="text.secondary">
@@ -878,13 +889,7 @@ export default function Project(scope: ProjectScope): JSX.Element {
                 </Link>
               </Stack>
             ) : (
-              <Button
-                size="small"
-                variant="text"
-                color="primary"
-                startIcon={<Link2 size={14} />}
-                onClick={() => setLinkRepoOpen(true)}
-                sx={{ mt: 2, pl: 0, alignSelf: 'flex-start', textTransform: 'none', fontSize: '0.8125rem' }}>
+              <Button size="small" variant="text" color="primary" startIcon={<Link2 size={14} />} onClick={() => setLinkRepoOpen(true)} sx={{ mt: 2, pl: 0, alignSelf: 'flex-start', textTransform: 'none', fontSize: '0.8125rem' }}>
                 Link a Repository
               </Button>
             )}

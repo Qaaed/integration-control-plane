@@ -250,16 +250,14 @@ export default function AutomationTest({ org, project, component }: ComponentSco
   const runLabel = envCritical ? 'Run' : 'Test';
   const runningLabel = envCritical ? 'Running…' : 'Testing…';
 
-  const envSelect = environments.length > 1 && <EnvironmentSelect environments={environments} value={envId} onChange={setEnvId} />;
+  const envSelect = environments.length > 1 && <EnvironmentSelect environments={environments} value={envId} onChange={setEnvId} deployment={{ orgHandler: org, orgUuid: orgUuid ?? '', componentId: comp?.id ?? '', versionId: trackId }} />;
 
-  /** The page heading, kept identical across every state so it never disappears. */
+  /** The page heading, kept identical across every state so it never disappears. The
+   *  environment selector lives in the sticky track bar below, which shares PageTitle's box. */
   const pageTitle = (
-    <Stack direction="row" alignItems="center" justifyContent="space-between" gap={2} flexWrap="wrap">
-      <PageTitle>
-        <PageTitle.Header>Test Your Automation</PageTitle.Header>
-      </PageTitle>
-      {envSelect}
-    </Stack>
+    <PageTitle>
+      <PageTitle.Header>Test Your Automation</PageTitle.Header>
+    </PageTitle>
   );
 
   /** Any state that cannot show the console still shows the title, with the reason under it. */
@@ -417,7 +415,7 @@ export default function AutomationTest({ org, project, component }: ComponentSco
       {tracks.length > 0 && (
         // Pin the track bar to the top of the scroll area so it stays visible as the page scrolls.
         <Box sx={{ position: 'sticky', top: 0, zIndex: (theme) => theme.zIndex.appBar }}>
-          <DeploymentTrackBar tracks={tracks} selectedId={trackId} onChange={setTrackId} orgHandler={org} projectHandler={project} componentHandler={component} />
+          <DeploymentTrackBar tracks={tracks} selectedId={trackId} onChange={setTrackId} orgHandler={org} projectHandler={project} componentHandler={component} extra={envSelect} />
         </Box>
       )}
       {/* Plain padded container (not PageContent) so the page uses the single outer scroller — the
