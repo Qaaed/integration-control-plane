@@ -234,8 +234,8 @@ const routes: AppRoute[] = [
                 { path: 'organizations/:orgHandler/insights/delivery/configure', element: createElement(withScope(ConfigureDelivery, ['organizations'])) },
                 { path: 'organizations/:orgHandler/insights/compliance', element: createElement(RouteErrorBoundary, null, createElement(withScope(OrgCompliance, ['organizations']))) },
               ]),
-              { path: 'organizations/:orgHandler/logs', element: <ComingSoon title="Every integration's logs, in one place" description="Runtime logs across the whole organization are on the way. For now, open an integration to read its logs." /> },
-              { path: 'organizations/:orgHandler/metrics', element: <ComingSoon title="Metrics across the organization" description="One view of throughput, latency and errors for every integration you run. Coming soon." /> },
+              { path: 'organizations/:orgHandler/logs', element: <ComingSoon description="Runtime logs across the whole organization are on the way. For now, open an integration to read its logs." /> },
+              { path: 'organizations/:orgHandler/metrics', element: <ComingSoon description="One view of throughput, latency and errors for every integration you run. Coming soon." /> },
               { path: 'organizations/:orgHandler/rag/scheduled-ingestion', element: createElement(withScope(SetupRagIngestion, ['organizations'])) },
               { path: 'organizations/:orgHandler/rag/service', element: createElement(withScope(SetupRagService, ['organizations'])) },
               { path: 'organizations/:orgHandler/rag/retrieval', element: createElement(withScope(RagRetrieval, ['organizations'])) },
@@ -306,7 +306,7 @@ const routes: AppRoute[] = [
               { path: 'organizations/:orgHandler/projects/:projectHandler/runtimes', element: <ComingSoon title="Coming Soon" description="Runtime management is currently under development." /> },
               { path: 'organizations/:orgHandler/projects/:projectHandler/metrics', element: <ComingSoon title="Coming Soon" description="Metrics are currently under development." /> },
               { path: 'organizations/:orgHandler/projects/:projectHandler/observe/runtimelogs', element: createElement(withScope(RuntimeLogsProject, ['projects'])) },
-              { path: 'organizations/:orgHandler/projects/:projectHandler/observe/metrics', element: <ComingSoon title="Metrics for this project" description="Throughput, latency and errors for every integration in the project. Coming soon." /> },
+              { path: 'organizations/:orgHandler/projects/:projectHandler/observe/metrics', element: <ComingSoon description="Throughput, latency and errors for every integration in the project. Coming soon." /> },
               ...hideable(IS_CLOUD, 'projects', [
                 { path: 'organizations/:orgHandler/projects/:projectHandler/admin/connections', element: createElement(RouteErrorBoundary, null, createElement(withScope(ProjectConnections, ['projects']))) },
                 { path: 'organizations/:orgHandler/projects/:projectHandler/admin/connections/new', element: createElement(RouteErrorBoundary, null, createElement(withScope(NewConnection, ['projects']))) },
@@ -435,7 +435,7 @@ const routes: AppRoute[] = [
               ]),
               {
                 path: 'organizations/:orgHandler/projects/:projectHandler/components/:componentHandler/metrics',
-                element: <ComingSoon title="Metrics for this integration" description="Throughput, latency and errors over time, per environment. Coming soon." />,
+                element: <ComingSoon description="Throughput, latency and errors over time, per environment. Coming soon." />,
               },
               ...hideable(IS_CLOUD, 'components', [
                 {

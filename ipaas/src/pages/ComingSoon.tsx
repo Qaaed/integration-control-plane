@@ -24,15 +24,13 @@ import { useAppNavigate } from '../hooks/useAppNavigate';
 const HEADING = 'Coming Soon';
 
 interface ComingSoonProps {
-  /** What the page will deliver, shown as the subtitle under the heading. */
+  /** Overrides the heading for states that aren't literally "coming soon". */
   title?: string;
   description?: string;
 }
 
 export default function ComingSoon({ title = HEADING, description = 'This feature is currently under development. Check back soon!' }: ComingSoonProps): JSX.Element {
   const navigate = useAppNavigate();
-  // Callers that pass nothing (or the heading itself) get no subtitle rather than it twice.
-  const subtitle = title && title !== HEADING ? title : null;
 
   return (
     <PageContent
@@ -98,13 +96,8 @@ export default function ComingSoon({ title = HEADING, description = 'This featur
 
         <Stack alignItems="center" gap={0.75}>
           <Typography variant="h4" fontWeight={700}>
-            {HEADING}
+            {title}
           </Typography>
-          {subtitle && (
-            <Typography variant="subtitle1" fontWeight={600} color="text.primary">
-              {subtitle}
-            </Typography>
-          )}
           <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 380 }}>
             {description}
           </Typography>
