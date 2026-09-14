@@ -176,9 +176,7 @@ const stageFile = (fileName: string, data: { data?: Record<string, string> }, se
   pendingFiles.set(fileName, { content: data.data?.data ?? '', sensitive });
 };
 
-// Resolve the environment a release is bound to. OpenChoreo has no releaseId→env
-// route, but release-mgt-deployments lists every binding (env filter ignored)
-// with its release name, so match on it to recover the env name.
+// Cloud has no release resource and no lookup route, so the env is recovered by matching release_name.
 interface BffReleaseBinding {
   environment_id?: string;
   release_name?: string;
