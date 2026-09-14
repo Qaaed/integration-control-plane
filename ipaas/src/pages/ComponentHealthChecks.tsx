@@ -80,7 +80,7 @@ export default function ComponentHealthChecks({ org, project, component }: Compo
     return <ComingSoon title="Coming Soon" description="Health Checks configuration is currently under development." />;
   }
 
-  const envSelect = environments.length > 1 ? <EnvironmentSelect environments={environments} value={envId} onChange={setEnvId} /> : null;
+  const envSelect = environments.length > 1 ? <EnvironmentSelect environments={environments} value={envId} onChange={setEnvId} deployment={{ orgHandler: org, orgUuid: orgUuid ?? '', componentId: comp?.id ?? '', versionId: trackId }} /> : null;
 
   const notify = (type: 'success' | 'error', message: string): void => setAlert({ type, message });
 

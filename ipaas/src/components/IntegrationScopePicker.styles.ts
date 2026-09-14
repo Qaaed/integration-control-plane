@@ -41,3 +41,12 @@ export const goButtonSx = {
   flexShrink: 0,
   whiteSpace: 'nowrap',
 } as const;
+
+/**
+ * Oxygen's theme lifts a resting select label by `top: -7px`, a correction calibrated for
+ * size="medium" (MUI rests those at translate(14px, 16px) versus small's 9px). On a small
+ * select it double-corrects and the label floats above centre, so undo it here.
+ */
+export const smallSelectLabelSx = {
+  '& .MuiInputLabel-root:not(.MuiInputLabel-shrink)': { top: 0 },
+} as const;

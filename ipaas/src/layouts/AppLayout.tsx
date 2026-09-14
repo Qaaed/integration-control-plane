@@ -137,7 +137,7 @@ import {
   type Scope,
 } from '../nav';
 import { isSettingsSectionVisible, type SettingsSectionDef } from '../constants/orgSettingsSections';
-import { componentOverviewUrl, loginUrl, orgHomeUrl, privacyPolicyUrl, profileUrl, registerOrgUrl, termsOfUseUrl } from '../paths';
+import { componentOverviewUrl, documentationUrl, loginUrl, orgHomeUrl, privacyPolicyUrl, profileUrl, registerOrgUrl, termsOfUseUrl } from '../paths';
 import { useAuth } from '../auth/AuthContext';
 import { useAccessControl } from '../contexts/AccessControlContext';
 import { CopilotProvider } from '../contexts/CopilotContext';
@@ -886,7 +886,7 @@ function AppLayoutInner(): JSX.Element {
               <UserMenu.Trigger name={displayName || username || 'User'} avatar={pictureUrl} />
               <UserMenu.Header name={displayName || username || 'User'} email={username} role="Admin" avatar={pictureUrl} />
               <UserMenu.Item icon={<UserIcon size={18} />} label="Profile" onClick={() => navigateTo(profileUrl())} />
-              <UserMenu.Item icon={<ScanEye size={18} />} label="Feature Preview" onClick={() => setFeaturePreviewOpen(true)} />
+              {!IS_CLOUD && <UserMenu.Item icon={<ScanEye size={18} />} label="Feature Preview" onClick={() => setFeaturePreviewOpen(true)} />}
               <UserMenu.Divider />
               <UserMenu.Logout icon={<LogOut size={18} />} label="Sign Out" onClick={() => setConfirmDialogOpen(true)} />
             </UserMenu>
@@ -981,7 +981,7 @@ function AppLayoutInner(): JSX.Element {
                         <Sidebar.ItemIcon>
                           <Eye size={20} />
                         </Sidebar.ItemIcon>
-                        <Sidebar.ItemLabel>Observability</Sidebar.ItemLabel>
+                        <Sidebar.ItemLabel>Observe</Sidebar.ItemLabel>
                         <Sidebar.Item id="org-logs">
                           <Sidebar.ItemIcon>
                             <ScrollText size={20} />
@@ -1311,7 +1311,7 @@ function AppLayoutInner(): JSX.Element {
                             <Sidebar.ItemIcon>
                               <Eye size={20} />
                             </Sidebar.ItemIcon>
-                            <Sidebar.ItemLabel>Observability</Sidebar.ItemLabel>
+                            <Sidebar.ItemLabel>Observe</Sidebar.ItemLabel>
                             {!IS_CLOUD && (
                               <Sidebar.Item id="alerts">
                                 <Sidebar.ItemIcon>
@@ -1332,6 +1332,41 @@ function AppLayoutInner(): JSX.Element {
                               </Sidebar.ItemIcon>
                               <Sidebar.ItemLabel>Metrics</Sidebar.ItemLabel>
                             </Sidebar.Item>
+                          </Sidebar.Item>
+
+                          {/* Day-2 operations on a running integration. Sits beside Observe rather than
+                              under Infrastructure, which is now just the environments and the pipeline. */}
+                          <Sidebar.Item id="operate">
+                            <Sidebar.ItemIcon>
+                              <SlidersHorizontal size={20} />
+                            </Sidebar.ItemIcon>
+                            <Sidebar.ItemLabel>Operate</Sidebar.ItemLabel>
+                            <Sidebar.Item id="runtime">
+                              <Sidebar.ItemIcon>
+                                <Server size={20} />
+                              </Sidebar.ItemIcon>
+                              <Sidebar.ItemLabel>Runtime</Sidebar.ItemLabel>
+                            </Sidebar.Item>
+                            <Sidebar.Item id="containers">
+                              <Sidebar.ItemIcon>
+                                <Boxes size={20} />
+                              </Sidebar.ItemIcon>
+                              <Sidebar.ItemLabel>Containers</Sidebar.ItemLabel>
+                            </Sidebar.Item>
+                            <Sidebar.Item id="configs-secrets">
+                              <Sidebar.ItemIcon>
+                                <KeyRound size={20} />
+                              </Sidebar.ItemIcon>
+                              <Sidebar.ItemLabel>Configs &amp; Secrets</Sidebar.ItemLabel>
+                            </Sidebar.Item>
+                            {isGenericService && (
+                              <Sidebar.Item id="health-checks">
+                                <Sidebar.ItemIcon>
+                                  <HeartPulse size={20} />
+                                </Sidebar.ItemIcon>
+                                <Sidebar.ItemLabel>Health Checks</Sidebar.ItemLabel>
+                              </Sidebar.Item>
+                            )}
                           </Sidebar.Item>
                         </Sidebar.Category>,
 
@@ -1366,32 +1401,6 @@ function AppLayoutInner(): JSX.Element {
                                   <Link2 size={20} />
                                 </Sidebar.ItemIcon>
                                 <Sidebar.ItemLabel>Connections</Sidebar.ItemLabel>
-                              </Sidebar.Item>
-                            )}
-                            <Sidebar.Item id="runtime">
-                              <Sidebar.ItemIcon>
-                                <Server size={20} />
-                              </Sidebar.ItemIcon>
-                              <Sidebar.ItemLabel>Runtime</Sidebar.ItemLabel>
-                            </Sidebar.Item>
-                            <Sidebar.Item id="containers">
-                              <Sidebar.ItemIcon>
-                                <Boxes size={20} />
-                              </Sidebar.ItemIcon>
-                              <Sidebar.ItemLabel>Containers</Sidebar.ItemLabel>
-                            </Sidebar.Item>
-                            <Sidebar.Item id="configs-secrets">
-                              <Sidebar.ItemIcon>
-                                <KeyRound size={20} />
-                              </Sidebar.ItemIcon>
-                              <Sidebar.ItemLabel>Configs &amp; Secrets</Sidebar.ItemLabel>
-                            </Sidebar.Item>
-                            {isGenericService && (
-                              <Sidebar.Item id="health-checks">
-                                <Sidebar.ItemIcon>
-                                  <HeartPulse size={20} />
-                                </Sidebar.ItemIcon>
-                                <Sidebar.ItemLabel>Health Checks</Sidebar.ItemLabel>
                               </Sidebar.Item>
                             )}
                             {isGenericService && !IS_CLOUD && (
@@ -1503,7 +1512,7 @@ function AppLayoutInner(): JSX.Element {
                           <Sidebar.ItemIcon>
                             <Eye size={20} />
                           </Sidebar.ItemIcon>
-                          <Sidebar.ItemLabel>Observability</Sidebar.ItemLabel>
+                          <Sidebar.ItemLabel>Observe</Sidebar.ItemLabel>
                           <Sidebar.Item id="proj-logs">
                             <Sidebar.ItemIcon>
                               <ScrollText size={20} />
@@ -1654,6 +1663,9 @@ function AppLayoutInner(): JSX.Element {
         )}
         {/* Matches the sidebar's surface rather than sitting as a white band under it. */}
         <Footer sx={{ backgroundColor: 'background.acrylic', backdropFilter: 'blur(3px)' }}>
+          <Footer.Link href={documentationUrl()} target="_blank" rel="noopener noreferrer">
+            Documentation
+          </Footer.Link>
           <Footer.Link href={termsOfUseUrl()} target="_blank" rel="noopener noreferrer">
             Terms of Use
           </Footer.Link>

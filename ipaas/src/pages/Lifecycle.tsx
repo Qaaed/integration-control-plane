@@ -127,7 +127,7 @@ export default function Lifecycle(scope: ComponentScope): JSX.Element {
                 value={selectedApimId ?? ''}
                 onChange={(e) => setSelectedApimId(e.target.value as string)}
                 disabled={endpointsWithApim.length <= 1}
-                sx={{ minWidth: 140, fontSize: '0.8125rem', '& .MuiOutlinedInput-notchedOutline': { borderRadius: 5 }, '& .MuiSelect-select': { py: 0.5, px: 1.5 } }}>
+                sx={{ borderRadius: 5, minWidth: 140, fontSize: '0.8125rem', '& .MuiOutlinedInput-notchedOutline': { borderRadius: 5 }, '& .MuiSelect-select': { py: 0.5, px: 1.5 } }}>
                 {endpointsWithApim.map((ep) => (
                   <MenuItem key={ep.apimId!} value={ep.apimId!}>
                     {ep.displayName}

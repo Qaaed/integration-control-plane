@@ -104,7 +104,7 @@ export default function McpTest(scope: ComponentScope): JSX.Element {
       value={selectedEnvId}
       onChange={(e) => setSelectedEnvId(e.target.value as string)}
       inputProps={{ 'aria-label': 'Environment' }}
-      sx={{ fontSize: '0.8125rem', '& .MuiOutlinedInput-notchedOutline': { borderRadius: 5 }, '& .MuiSelect-select': { py: 0.5, px: 1.5 }, minWidth: 140 }}>
+      sx={{ borderRadius: 5, fontSize: '0.8125rem', '& .MuiOutlinedInput-notchedOutline': { borderRadius: 5 }, '& .MuiSelect-select': { py: 0.5, px: 1.5 }, minWidth: 140 }}>
       {environments.map((env) => (
         <MenuItem key={env.id} value={env.id}>
           {env.name}

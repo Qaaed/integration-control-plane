@@ -160,6 +160,7 @@ export default function ComponentPlans(scope: ComponentScope): JSX.Element {
         inputProps={{ 'aria-label': 'Endpoint' }}
         sx={{
           fontSize: '0.8125rem',
+          borderRadius: 5,
           '& .MuiOutlinedInput-notchedOutline': { borderRadius: 5 },
           '& .MuiSelect-select': { py: 0.5, px: 1.5 },
           minWidth: 160,

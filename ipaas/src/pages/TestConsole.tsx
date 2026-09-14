@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { Alert, Autocomplete, Box, Button, CircularProgress, Divider, IconButton, InputAdornment, MenuItem, OutlinedInput, PageContent, Select, Stack, TextField, Tooltip, Typography } from '@wso2/oxygen-ui';
+import { Alert, Autocomplete, Box, Button, CircularProgress, Divider, IconButton, InputAdornment, OutlinedInput, PageContent, Stack, TextField, Tooltip, Typography } from '@wso2/oxygen-ui';
 import { Check, Copy, Eye, EyeOff, Key } from '@wso2/oxygen-ui-icons-react';
 import { useMemo, useRef, useState, type JSX } from 'react';
 import SwaggerUI from 'swagger-ui-react';
@@ -39,33 +39,10 @@ import { friendlyApiError } from '../utils/apiSecurity';
 import { broaden, resourceUrl, type ComponentScope } from '../nav';
 
 import NotDeployedAlert from '../components/NotDeployedAlert';
+import EnvironmentSelect from '../components/common/EnvironmentSelect';
 /** Header the APIM gateway reads the test key from. Cloud uses the api-key-auth header instead. */
 const APIM_TEST_KEY_HEADER = 'test-key';
 const TEST_KEY_HEADER = IS_CLOUD ? DEFAULT_API_KEY_HEADER : APIM_TEST_KEY_HEADER;
-
-const ENV_STATUS_DOT: Record<string, string> = {
-  ACTIVE: 'success.main',
-  ERROR: 'error.main',
-  FAILED: 'error.main',
-  IN_PROGRESS: 'warning.main',
-  SUSPENDED: 'text.disabled',
-  NOT_DEPLOYED: 'text.disabled',
-};
-
-interface EnvDotProps {
-  orgHandler: string;
-  orgUuid: string;
-  componentId: string;
-  versionId: string;
-  envId: string;
-}
-
-function EnvDot({ orgHandler, orgUuid, componentId, versionId, envId }: EnvDotProps) {
-  const { data: dep } = useComponentDeployment(orgHandler, orgUuid, componentId, versionId, envId);
-  const status = dep?.deploymentStatusV2?.toUpperCase() ?? '';
-  const color = ENV_STATUS_DOT[status] ?? 'text.disabled';
-  return <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />;
-}
 
 // Hides SwaggerUI top chrome — keeps only the operations list with try-it-out
 const HideTopPlugin = () => ({
@@ -201,39 +178,15 @@ export default function TestConsole(scope: ComponentScope): JSX.Element {
   }
 
   const envSelector = environments.length > 1 && (
-    <Select
-      size="small"
+    <EnvironmentSelect
+      environments={environments}
       value={selectedEnvId}
-      onChange={(e) => {
-        setSelectedEnvId(e.target.value as string);
+      onChange={(id) => {
+        setSelectedEnvId(id);
         setSelectedEndpointId('');
       }}
-      renderValue={(value) => {
-        const env = environments.find((e) => e.id === value);
-        if (!env) return null;
-        return (
-          <Stack direction="row" alignItems="center" gap={0.75}>
-            <EnvDot orgHandler={scope.org} orgUuid={orgUuid} componentId={component?.id ?? ''} versionId={selectedTrackId} envId={env.id} />
-            {env.name}
-          </Stack>
-        );
-      }}
-      inputProps={{ 'aria-label': 'Environment' }}
-      sx={{
-        fontSize: '0.8125rem',
-        '& .MuiOutlinedInput-notchedOutline': { borderRadius: 5 },
-        '& .MuiSelect-select': { py: 0.5, px: 1.5 },
-        minWidth: 140,
-      }}>
-      {environments.map((env) => (
-        <MenuItem key={env.id} value={env.id}>
-          <Stack direction="row" alignItems="center" gap={0.75}>
-            <EnvDot orgHandler={scope.org} orgUuid={orgUuid} componentId={component?.id ?? ''} versionId={selectedTrackId} envId={env.id} />
-            {env.name}
-          </Stack>
-        </MenuItem>
-      ))}
-    </Select>
+      deployment={{ orgHandler: scope.org, orgUuid, componentId: component?.id ?? '', versionId: selectedTrackId }}
+    />
   );
 
   return (
