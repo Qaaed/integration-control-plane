@@ -127,6 +127,19 @@ export default function ComponentConfigs({ org, project, component }: ComponentS
           )}
         </PageTitle>
 
+        {alert && (
+          <Alert severity={alert.type} onClose={() => setAlert(null)} sx={{ mb: 2 }}>
+            {alert.detail ? (
+              <>
+                <AlertTitle>{alert.message}</AlertTitle>
+                {alert.detail}
+              </>
+            ) : (
+              alert.message
+            )}
+          </Alert>
+        )}
+
         {isLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 120px)' }}>
             <CircularProgress />
@@ -141,19 +154,6 @@ export default function ComponentConfigs({ org, project, component }: ComponentS
           <ConfigEditor ctx={ctx} existing={view.row} onBack={() => setView({ kind: 'list' })} onSaved={onEditorDone} onError={(message) => setAlert({ type: 'error', message })} />
         ) : (
           <>
-            {alert && (
-              <Alert severity={alert.type} onClose={() => setAlert(null)} sx={{ mb: 2 }}>
-                {alert.detail ? (
-                  <>
-                    <AlertTitle>{alert.message}</AlertTitle>
-                    {alert.detail}
-                  </>
-                ) : (
-                  alert.message
-                )}
-              </Alert>
-            )}
-
             {loadingMounts ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
                 <CircularProgress />

@@ -38,8 +38,10 @@ export interface BusyFieldsProps {
  */
 export default function BusyFields({ busy, children }: BusyFieldsProps): JSX.Element {
   return (
-    <Box inert={busy} aria-busy={busy} sx={{ opacity: busy ? 0.6 : 1, transition: 'opacity 120ms ease' }}>
-      {children}
+    <Box aria-busy={busy} sx={{ opacity: busy ? 0.6 : 1, transition: 'opacity 120ms ease' }}>
+      {/* inert drops its own element from the accessibility tree too, so aria-busy has to
+          sit on an ancestor of it to still be announced. */}
+      <Box inert={busy}>{children}</Box>
     </Box>
   );
 }
