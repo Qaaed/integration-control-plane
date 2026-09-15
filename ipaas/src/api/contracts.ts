@@ -364,6 +364,8 @@ export interface BuildsApi {
 export interface CloudEditorApi {
   getOrCreateSampleRegistry(orgUuid: string): Promise<ContainerRegistry>;
   callCreateCodeServer(params: { userId: string; organizationId: string; projectId: string; componentId: string; orgHandle: string; imageUrl: string; registryId: string; sourceCommitHash?: string }): Promise<CodeServerInstance>;
+  /** One reading of an existing editor; null when none exists yet. Used to wait for readiness after the address is known. */
+  getCodeServer(params: { userId: string; projectId: string; componentId: string }): Promise<CodeServerInstance | null>;
 }
 
 // ---------------------------------------------------------------------------
