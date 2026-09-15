@@ -45,11 +45,6 @@ export default function OIDCCallback(): JSX.Element {
       const state = searchParams.get('state');
       const oidcError = searchParams.get('error');
 
-      if (oidcError) {
-        setError(`Authentication failed: ${searchParams.get('error_description') || oidcError}`);
-        return;
-      }
-
       // A Cloud Editor cannot receive the provider's redirect itself: the client
       // registers a fixed set of callbacks and an editor's address is a
       // per-component subdomain that is not among them. So it asks to be
@@ -57,12 +52,27 @@ export default function OIDCCallback(): JSX.Element {
       // target is checked against the same allowlist the GitHub callback uses,
       // because `state` reaches us by way of the provider and anyone who can
       // start a sign-in chooses its contents.
+      //
+      // Resolved before the error below is handled: a refused or failed sign-in
+      // is a result the editor is waiting for, and swallowing it here leaves it
+      // waiting for one that never comes. The editor is told what happened and
+      // says so, rather than appearing to hang.
       const editorCallback = editorCallbackUri(state, {
         origins: window.API_CONFIG?.editorCallbackOrigins ?? [],
         domains: window.API_CONFIG?.editorCallbackDomains ?? [],
       });
       if (editorCallback) {
-        window.location.href = buildEditorCallbackUrl(editorCallback, { code, state });
+        window.location.href = buildEditorCallbackUrl(editorCallback, {
+          code,
+          state,
+          error: oidcError,
+          error_description: searchParams.get('error_description'),
+        });
+        return;
+      }
+
+      if (oidcError) {
+        setError(`Authentication failed: ${searchParams.get('error_description') || oidcError}`);
         return;
       }
 
