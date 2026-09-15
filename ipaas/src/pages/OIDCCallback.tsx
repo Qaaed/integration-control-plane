@@ -17,6 +17,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { buildEditorCallbackUrl, editorCallbackUri } from '../utils/vscodeCallback';
 import type { JSX } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Alert, Box, CircularProgress, Typography } from '@wso2/oxygen-ui';
@@ -46,6 +47,22 @@ export default function OIDCCallback(): JSX.Element {
 
       if (oidcError) {
         setError(`Authentication failed: ${searchParams.get('error_description') || oidcError}`);
+        return;
+      }
+
+      // A Cloud Editor cannot receive the provider's redirect itself: the client
+      // registers a fixed set of callbacks and an editor's address is a
+      // per-component subdomain that is not among them. So it asks to be
+      // returned here and names itself in `state`, and this page forwards. The
+      // target is checked against the same allowlist the GitHub callback uses,
+      // because `state` reaches us by way of the provider and anyone who can
+      // start a sign-in chooses its contents.
+      const editorCallback = editorCallbackUri(state, {
+        origins: window.API_CONFIG?.editorCallbackOrigins ?? [],
+        domains: window.API_CONFIG?.editorCallbackDomains ?? [],
+      });
+      if (editorCallback) {
+        window.location.href = buildEditorCallbackUrl(editorCallback, { code, state });
         return;
       }
 
