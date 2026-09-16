@@ -214,6 +214,11 @@ export function componentSubTypeFromSample(componentType: string, buildPack: str
   if (componentType === 'file-integration') {
     return buildPack === 'wso2-mi' ? 'miFileIntegration' : 'ballerinaFileIntegration';
   }
+  // Webhooks build on the shared service runtime, so the subtype is what carries
+  // the webhook identity through to the Component annotation.
+  if (componentType === 'webhook') {
+    return 'webhook';
+  }
   // AI agents share a generic service displayType across runtimes; `aiAgent` is
   // the discriminator (runtime-independent), matching devant's create flow.
   if (componentType === 'ai-agent') {
