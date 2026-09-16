@@ -153,9 +153,10 @@ export function getDisplayLabel(displayType: string, componentSubType: string | 
     case 'miJob':
     case 'buildpackJob':
       return 'Manual Task';
-    default:
-      return displayType ?? 'Unknown';
   }
+  // Foreign-runtime components arrive as lower(buildpackType)+Cap(componentType), e.g. 'otherAiAgent'.
+  if (displayType?.startsWith(OTHER_BUILDPACK)) return 'Other';
+  return displayType ?? 'Unknown';
 }
 
 export const COMPONENT_TYPE_LABELS: Record<string, string> = {

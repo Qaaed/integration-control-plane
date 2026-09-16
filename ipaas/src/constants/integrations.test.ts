@@ -26,6 +26,12 @@ describe('project listing — RAG components', () => {
     expect(getDisplayLabel('byoiCronjob', null)).toBe('Automation');
   });
 
+  it('labels every foreign-runtime component "Other"', () => {
+    expect(getDisplayLabel('otherAiAgent', null)).toBe('Other');
+    expect(getDisplayLabel('otherService', null)).toBe('Other');
+    expect(getDisplayLabel('other', null)).toBe('Other');
+  });
+
   it('labels the RAG services as Integration as API', () => {
     expect(getDisplayLabel('byoiService', 'rag-retrieval-service')).toBe('Integration as API');
     expect(getDisplayLabel('byoiService', 'rag-service')).toBe('Integration as API');
