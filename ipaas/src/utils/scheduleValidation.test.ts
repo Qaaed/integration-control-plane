@@ -103,3 +103,17 @@ describe('validateCronFields', () => {
     expect(Object.keys(errors).sort()).toEqual(['minute', 'month']);
   });
 });
+
+describe("'?' wildcard", () => {
+  it('accepts ? wherever * is accepted', () => {
+    // Quartz-style schedules such as `0 0 ? * *` are pasted in and do run.
+    expect(validateCronField('dom', '?')).toBeUndefined();
+    expect(validateCronField('dow', '?')).toBeUndefined();
+    expect(validateCronField('minute', '?')).toBeUndefined();
+    expect(validateCronField('hour', '?/2')).toBeUndefined();
+  });
+
+  it('still rejects a zero step on ?', () => {
+    expect(validateCronField('minute', '?/0')).toBeDefined();
+  });
+});

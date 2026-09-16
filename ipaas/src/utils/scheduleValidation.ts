@@ -66,7 +66,8 @@ function validateTerm(term: string, range: { min: number; max: number }): boolea
   if (rest.length > 0) return false;
   if (step !== undefined && !validateStep(step)) return false;
 
-  if (body === '*') return true;
+  // Kubernetes validates with robfig/cron, which reads '?' as '*' in every field.
+  if (body === '*' || body === '?') return true;
 
   const bounds = body.split('-');
   if (bounds.length > 2) return false;

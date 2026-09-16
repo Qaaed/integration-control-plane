@@ -51,3 +51,9 @@ describe('formatDocumentTitle', () => {
     expect(formatDocumentTitle('')).toBe(APP_NAME);
   });
 });
+
+describe('acronym nav ids', () => {
+  it('keeps RAG as an acronym rather than title-casing it', () => {
+    expect(pageTitleFor('org-rag')).toBe('RAG');
+  });
+});

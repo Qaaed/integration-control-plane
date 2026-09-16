@@ -33,6 +33,7 @@ const TITLE_OVERRIDES: Record<string, string> = {
   'proj-third-party': 'Third Party Services',
   'org-vector-databases': 'Vector Databases',
   'org-scheduled-ingestion': 'Scheduled Ingestion',
+  'org-rag': 'RAG',
   'api-info': 'API Info',
   'api-chat': 'API Chat',
   'external-ci': 'External CI',
