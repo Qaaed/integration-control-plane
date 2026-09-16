@@ -23,6 +23,15 @@ const CLOUD_BASE_URL = process.env.E2E_CLOUD_BASE_URL ?? 'https://ipaas-console-
 // Thunder's Gate SPA intermittently stalls on its spinner; a fresh load clears it.
 const CLOUD_RETRIES = process.env.CI ? 2 : 1;
 
+/**
+ * Where the run's report, traces, videos and screenshots are written.
+ *
+ * In-cluster this is /artifacts, an emptyDir the integration-tests kustomization mounts into
+ * every suite alongside an uploader sidecar that ships it to the shared S3 bucket and hands
+ * back a presigned link. Unset locally, so a developer run still writes beside the repo.
+ */
+const ARTIFACT_DIR = process.env.E2E_ARTIFACT_DIR;
+
 // Selecting the setup by an explicit flag rather than by whether a token source happens
 // to be set: a mistyped E2E_TOKEN_URL would otherwise fall back to the browser login and
 // report a pass for a mode that never ran.
@@ -36,7 +45,7 @@ export default defineConfig({
   // Playwright reads the host's core count, not the container's cgroup limit, so a
   // containerised run must state its worker count rather than inherit the default.
   workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : process.env.CI ? 1 : undefined,
-  reporter: [['html', { open: 'never' }], ['list']],
+  reporter: [['html', { open: 'never', outputFolder: ARTIFACT_DIR ? `${ARTIFACT_DIR}/report` : 'playwright-report' }], ['list']],
   timeout: 60_000,
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'https://preview-o2-dev.devant.dev',
@@ -107,6 +116,8 @@ export default defineConfig({
       name: 'cloud',
       testIgnore: /specs[\\/](wip|cloud-anon)[\\/]/,
       retries: CLOUD_RETRIES,
+      // The journey spec depends on declaration order within its file.
+      fullyParallel: false,
       use: {
         ...devices['Desktop Chrome'],
         baseURL: CLOUD_BASE_URL,
@@ -115,5 +126,5 @@ export default defineConfig({
       dependencies: [CLOUD_SETUP],
     },
   ],
-  outputDir: 'test-results/',
+  outputDir: ARTIFACT_DIR ? `${ARTIFACT_DIR}/test-results` : 'test-results/',
 });
