@@ -23,6 +23,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { loginApiUrl } from '../config/runtimeConfig';
 import { loginUrl } from '../paths';
 import { IS_CLOUD } from '../features';
+import { buildAuthorizationUrl } from './authorizeUrl';
 import {
   saveTokens,
   clearTokens,
@@ -137,21 +138,19 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
   }, []);
 
   const loginWithOIDC = useCallback(async (fidp?: string) => {
-    const { asgardeoClientId, asgardeoAuthorizeEndpoint, asgardeoSignInRedirectUrl, asgardeoScope } = window.API_CONFIG;
+    const { asgardeoClientId, asgardeoAuthorizeEndpoint, asgardeoSignInRedirectUrl, asgardeoScope, asgardeoResource } = window.API_CONFIG;
     const state = generateAndSaveOIDCState();
     const { verifier, challenge } = await generatePKCE();
     saveCodeVerifier(verifier);
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: asgardeoClientId,
-      redirect_uri: asgardeoSignInRedirectUrl,
+    window.location.href = buildAuthorizationUrl(asgardeoAuthorizeEndpoint, {
+      clientId: asgardeoClientId,
+      redirectUri: asgardeoSignInRedirectUrl,
       scope: asgardeoScope,
       state,
-      code_challenge: challenge,
-      code_challenge_method: 'S256',
+      codeChallenge: challenge,
+      resource: asgardeoResource,
+      fidp,
     });
-    if (fidp) params.set('fidp', fidp);
-    window.location.href = `${asgardeoAuthorizeEndpoint}?${params}`;
   }, []);
 
   const handleOIDCCallback = useCallback(async (code: string, _state: string | null): Promise<{ isNewUser: boolean }> => {
