@@ -622,6 +622,14 @@ test.describe('07 page availability @smoke', () => {
     await expectNavItems(page, ['Build', 'Deploy', 'Test']);
     await openNavGroup(page, 'Observe', 'Runtime Logs');
     await expectNavItems(page, ['Runtime Logs', 'Metrics']);
+
+    // Opened, not just listed: a nav item survives a page that fails to render, and the
+    // integration-scoped observability specs no longer run on cloud to catch that.
+    for (const observePage of ['Runtime Logs', 'Metrics']) {
+      await page.getByRole('button', { name: observePage, exact: true }).click();
+      await expect(page.locator('main').getByRole('heading').first(), `${observePage} did not render`).toBeVisible({ timeout: 60_000 });
+    }
+
     await openNavGroup(page, 'Operate', 'Runtime');
     await expectNavItems(page, ['Runtime', 'Containers', 'Configs & Secrets']);
     await openNavGroup(page, 'Infrastructure', 'Environments');

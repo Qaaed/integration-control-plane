@@ -28,13 +28,18 @@ export async function waitForBuildToSettle(page: Page): Promise<string> {
   // than on whatever the preceding tests left of one.
   await reseedFromConsoleOrigin(page, buildPage);
 
-  for (let elapsed = 0; elapsed < BUILD_TIMEOUT_MS; elapsed += CHUNK_MS) {
+  // Wall-clock, not a chunk count: each pass also spends time reseeding, so counting chunks
+  // overruns the caller's timeout and loses this helper's diagnostic to a generic one.
+  const deadline = Date.now() + BUILD_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
     const finished = await expect(buildStatus(page))
-      .toHaveText(TERMINAL_STATUS, { timeout: CHUNK_MS })
+      .toHaveText(TERMINAL_STATUS, { timeout: Math.min(CHUNK_MS, deadline - Date.now()) })
       .then(() => true)
       .catch(() => false);
     if (finished) return (await buildStatus(page).textContent())?.trim() ?? '';
 
+    if (Date.now() >= deadline) break;
     await reseedFromConsoleOrigin(page, buildPage);
   }
 
