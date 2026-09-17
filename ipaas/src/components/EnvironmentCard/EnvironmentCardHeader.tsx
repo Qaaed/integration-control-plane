@@ -24,7 +24,8 @@ import RunButton from '../Overview/automation/RunButton';
 interface EnvironmentCardHeaderProps {
   envName: string;
   envCritical?: boolean | null;
-  latestCommit?: { sha: string; message: string } | null;
+  /** The commit this environment is running — not the repo's newest. */
+  deployedCommit?: { sha: string; message?: string } | null;
   isAutomation: boolean;
   isGenericService?: boolean;
   deploymentStatusV2?: string | null;
@@ -57,7 +58,7 @@ const STATUS_DOT_MAP: Record<string, { label: string; dotColor: string }> = {
 export default function EnvironmentCardHeader({
   envName,
   envCritical,
-  latestCommit,
+  deployedCommit,
   isAutomation,
   isGenericService,
   deploymentStatusV2,
@@ -94,15 +95,17 @@ export default function EnvironmentCardHeader({
         <Typography variant="h5" component="h2" sx={{ fontWeight: 600, textTransform: 'capitalize', flexShrink: 0 }}>
           {envName}
         </Typography>
-        {hasDeployment && latestCommit && (
+        {hasDeployment && deployedCommit?.sha && (
           <Stack direction="row" alignItems="center" gap={0.5} sx={{ minWidth: 0 }}>
             <GitCommit size={14} style={{ opacity: 0.55, flexShrink: 0 }} />
             <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary', flexShrink: 0 }}>
-              {latestCommit.sha.substring(0, 7)}
+              {deployedCommit.sha.substring(0, 7)}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {latestCommit.message}
-            </Typography>
+            {deployedCommit.message && (
+              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {deployedCommit.message}
+              </Typography>
+            )}
           </Stack>
         )}
         {statusDot && (

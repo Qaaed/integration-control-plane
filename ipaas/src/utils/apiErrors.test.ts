@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { httpStatusOf, isNotFoundError, isUnsupportedError } from './apiErrors';
+import { httpStatusOf, isNotFoundError, isQuotaError, isUnsupportedError } from './apiErrors';
 
 describe('httpStatusOf', () => {
   it('prefers a structured status field over the message', () => {
@@ -79,5 +79,27 @@ describe('isUnsupportedError', () => {
   it('tolerates non-Error values', () => {
     expect(isUnsupportedError('not implemented')).toBe(false);
     expect(isUnsupportedError(null)).toBe(false);
+  });
+});
+
+describe('isQuotaError', () => {
+  it('matches a BffError carrying a 402 status', () => {
+    expect(isQuotaError(Object.assign(new Error('You have reached the limit of 5 projects.'), { status: 402 }))).toBe(true);
+  });
+
+  it('matches wip\'s HTTP-prefixed message form', () => {
+    expect(isQuotaError(new Error('HTTP 402: quota exceeded'))).toBe(true);
+  });
+
+  it('does not match other failures', () => {
+    expect(isQuotaError(Object.assign(new Error('boom'), { status: 500 }))).toBe(false);
+    expect(isQuotaError(Object.assign(new Error('nope'), { status: 409 }))).toBe(false);
+    expect(isQuotaError(new Error('Failed to fetch'))).toBe(false);
+  });
+
+  it('tolerates non-Error values', () => {
+    expect(isQuotaError('402')).toBe(false);
+    expect(isQuotaError(null)).toBe(false);
+    expect(isQuotaError(undefined)).toBe(false);
   });
 });

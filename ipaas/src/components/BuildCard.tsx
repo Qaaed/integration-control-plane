@@ -24,6 +24,7 @@ import { useDeploymentStatus } from '../hooks/useDeployments';
 import { useBuildLogs } from '../hooks/useBuilds';
 import { useStableStepperState } from '../hooks/useStableStepperState';
 import { buildStepperSteps, failedStepPhrase, getBuildStatus, humanizeConclusion, isFailedConclusion } from '../utils/buildProgress';
+import { findCommitBySha } from '../utils/commits';
 import type { Commit } from '../types/repository';
 import BuildLogViewer from './BuildLogViewer';
 import HorizontalStepper from './HorizontalStepper';
@@ -32,10 +33,11 @@ import * as styles from './BuildCard.styles';
 interface BuildCardProps {
   componentId: string;
   versionId: string;
-  latestCommit?: Commit | null;
+  /** Recent commit history, joined against the build's own SHA to caption it. */
+  commits?: Commit[];
 }
 
-export default function BuildCard({ componentId, versionId, latestCommit }: BuildCardProps) {
+export default function BuildCard({ componentId, versionId, commits }: BuildCardProps) {
   const { data: deployments, isPending: loadingBuilds } = useDeploymentStatus(componentId, versionId);
   const lastBuild = deployments?.[0] ?? null;
 
@@ -104,14 +106,12 @@ export default function BuildCard({ componentId, versionId, latestCommit }: Buil
     );
   }
 
-  // The card names the commit this build was made from, not the repo's newest. The build record
-  // carries no message, and `latestCommit`'s belongs to HEAD — so it is only shown when the two
-  // are the same commit, rather than captioning one SHA with another's message.
+  // A build older than the fetched history stays SHA-only rather than borrowing another commit's message.
   const buildSha = lastBuild.sourceCommitId || '';
-  const commitSha = (buildSha || latestCommit?.sha || '').slice(0, 7);
-  const isHeadBuild = !buildSha || (!!latestCommit?.sha && latestCommit.sha.slice(0, 7) === buildSha.slice(0, 7));
-  const commitMessage = isHeadBuild ? (latestCommit?.message ?? '') : '';
-  const commitTooltip = commitMessage ? `"${commitMessage}"${latestCommit?.author?.name ? ` by ${latestCommit.author.name}` : ''}` : commitSha;
+  const buildCommit = findCommitBySha(commits, buildSha);
+  const commitSha = buildSha.slice(0, 7);
+  const commitMessage = buildCommit?.message ?? '';
+  const commitTooltip = commitMessage ? `"${commitMessage}"${buildCommit?.author?.name ? ` by ${buildCommit.author.name}` : ''}` : commitSha;
 
   // A finished build resolves past the last step; clamp that to -1 so the shared
   // stepper highlights nothing (it only supports indices 0..steps-1 or -1).

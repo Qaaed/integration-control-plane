@@ -44,7 +44,7 @@ export default function FileEventHeader({
   projectHandler,
   componentHandler,
   envTemplateId,
-  latestCommit,
+  deployedCommit,
   hasDeployment,
   deploymentStatusV2,
   deployedCommitSha,
@@ -107,15 +107,17 @@ export default function FileEventHeader({
           {env.name}
         </Typography>
 
-        {hasDeployment && latestCommit && (
+        {hasDeployment && deployedCommit?.sha && (
           <Stack direction="row" alignItems="center" gap={0.5} sx={{ minWidth: 0 }}>
             <GitCommit size={14} style={{ opacity: 0.55, flexShrink: 0 }} />
             <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'text.secondary', flexShrink: 0 }}>
-              {latestCommit.sha.substring(0, 7)}
+              {deployedCommit.sha.substring(0, 7)}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {latestCommit.message}
-            </Typography>
+            {deployedCommit.message && (
+              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {deployedCommit.message}
+              </Typography>
+            )}
           </Stack>
         )}
 
@@ -125,7 +127,10 @@ export default function FileEventHeader({
           <>
             <ConfigureButton onClick={() => setConfigureOpen(true)} hasMissingConfigs={missingConfigs} />
             <ConfigureDrawer
-              onSaved={() => onNotify({ text: 'Configuration saved', severity: 'success', detail: 'A redeployment has been initiated so the integration picks up the new configuration.' })}
+              onSaved={() => {
+                requestPoll();
+                onNotify({ text: 'Configuration saved', severity: 'success', detail: 'A redeployment has been initiated so the integration picks up the new configuration.' });
+              }}
               open={configureOpen}
               onClose={() => setConfigureOpen(false)}
               orgHandler={orgHandler}

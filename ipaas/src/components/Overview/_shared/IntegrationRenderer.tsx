@@ -33,7 +33,6 @@ interface IntegrationRendererProps {
   orgHandler: string;
   projectHandler: string;
   deploymentPipelineId: string;
-  latestCommit?: { sha: string; message: string } | null;
   isBuildInProgress?: boolean;
   /** The type's module, resolved once by `useIntegrationModule` in the page. */
   module: IntegrationModule | null;
@@ -51,7 +50,7 @@ interface IntegrationRendererProps {
  * The module is loaded by `useIntegrationModule` (shared with `HeaderShell`),
  * so the type is resolved once per page, not per consumer.
  */
-export default function IntegrationRenderer({ component, identity, environments, versionId, projectId, orgHandler, projectHandler, deploymentPipelineId, latestCommit, isBuildInProgress, module }: IntegrationRendererProps): ReactNode {
+export default function IntegrationRenderer({ component, identity, environments, versionId, projectId, orgHandler, projectHandler, deploymentPipelineId, isBuildInProgress, module }: IntegrationRendererProps): ReactNode {
   if (!module) {
     // The type module is a lazily-imported chunk; while it loads, show one
     // frame-shaped skeleton per environment so the cards take their final shape
@@ -84,7 +83,6 @@ export default function IntegrationRenderer({ component, identity, environments,
       orgHandler={orgHandler}
       projectHandler={projectHandler}
       deploymentPipelineId={deploymentPipelineId}
-      latestCommit={latestCommit}
       isBuildInProgress={isBuildInProgress}
       module={module}
     />

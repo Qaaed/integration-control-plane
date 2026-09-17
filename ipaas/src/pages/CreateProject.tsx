@@ -37,6 +37,7 @@ import { useProjectHandler } from '../hooks/useProjectHandler';
 import { resourceUrl, narrow, type OrgScope } from '../nav';
 import { toHandler } from '../utils/string';
 import { validateProjectName, validateProjectHandler, normalizeProjectError } from '../utils/projectValidation';
+import { isQuotaError } from '../utils/apiErrors';
 import { GitProvider as CredGitProvider } from '../types/credentials';
 import AddCredentialDialog from '../components/Settings/Credentials/AddCredentialDialog';
 import { gitProviderIcon } from '../constants/gitProviders';
@@ -49,6 +50,7 @@ export default function CreateProject(scope: OrgScope): JSX.Element {
   const [showWorkspaceConfig, setShowWorkspaceConfig] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitErrorSeverity, setSubmitErrorSeverity] = useState<'error' | 'warning'>('error');
 
   const {
     gitProvider,
@@ -180,6 +182,7 @@ export default function CreateProject(scope: OrgScope): JSX.Element {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.';
+      setSubmitErrorSeverity(isQuotaError(err) ? 'warning' : 'error');
       setSubmitError(normalizeProjectError(message));
       setIsCreating(false);
       return;
@@ -405,7 +408,7 @@ export default function CreateProject(scope: OrgScope): JSX.Element {
       </Typography>
 
       {submitError && (
-        <Alert severity="error" role="alert" sx={{ mb: 3 }} onClose={() => setSubmitError(null)}>
+        <Alert severity={submitErrorSeverity} role="alert" sx={{ mb: 3 }} onClose={() => setSubmitError(null)}>
           {submitError}
         </Alert>
       )}

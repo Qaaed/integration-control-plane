@@ -51,3 +51,8 @@ export function isNotFoundError(error: unknown): boolean {
 export function isUnsupportedError(error: unknown): boolean {
   return /:\s*not implemented\b/.test(messageOf(error));
 }
+
+/** A plan limit, not a malfunction — callers show `error.message` as a warning. */
+export function isQuotaError(error: unknown): boolean {
+  return httpStatusOf(error) === 402;
+}

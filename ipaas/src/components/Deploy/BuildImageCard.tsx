@@ -31,10 +31,12 @@ interface BuildImageCardProps {
   onSelect?: () => void;
   onEdit?: () => void;
   hideEdit?: boolean;
-  isBuilding?: boolean;
+  /** Set when the card stands in for a build that has not produced an image yet. */
+  buildState?: 'queued' | 'running' | null;
 }
 
-export default function BuildImageCard({ image, isLatest, variant = 'detail', isSelected = false, onSelect, onEdit, hideEdit = false, isBuilding = false }: BuildImageCardProps): JSX.Element {
+export default function BuildImageCard({ image, isLatest, variant = 'detail', isSelected = false, onSelect, onEdit, hideEdit = false, buildState = null }: BuildImageCardProps): JSX.Element {
+  const isPendingBuild = buildState !== null;
   const [copied, setCopied] = useState(false);
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -69,7 +71,7 @@ export default function BuildImageCard({ image, isLatest, variant = 'detail', is
       }
       sx={{
         border: '1px solid',
-        borderColor: isBuilding ? 'warning.main' : isSelected ? 'primary.main' : 'divider',
+        borderColor: isPendingBuild ? 'warning.main' : isSelected ? 'primary.main' : 'divider',
         borderRadius: 1,
         p: 1.5,
         bgcolor: isSelectable ? (isSelected ? 'action.selected' : 'transparent') : undefined,
@@ -83,7 +85,7 @@ export default function BuildImageCard({ image, isLatest, variant = 'detail', is
         </Typography>
 
         <Stack direction="row" gap={0.25} alignItems="center">
-          {variant === 'detail' && !hideEdit && !isBuilding && (
+          {variant === 'detail' && !hideEdit && !isPendingBuild && (
             <Tooltip title="Change image">
               <IconButton size="small" onClick={handleEdit} sx={{ p: 0.25 }}>
                 <Edit size={12} />
@@ -96,18 +98,20 @@ export default function BuildImageCard({ image, isLatest, variant = 'detail', is
 
       {/* ── Run ID + Copy (always inline) + status chip ── */}
       <Stack direction="row" alignItems="center" gap={0.75} sx={{ mb: 0.5 }}>
-        <Typography variant="body2" sx={{ fontFamily: 'monospace', color: isBuilding ? 'text.secondary' : undefined }}>
-          {isBuilding ? '—' : image.runId}
+        <Typography variant="body2" sx={{ fontFamily: 'monospace', color: isPendingBuild ? 'text.secondary' : undefined }}>
+          {isPendingBuild ? '—' : image.runId}
         </Typography>
-        {variant === 'detail' && !isBuilding && (
+        {variant === 'detail' && !isPendingBuild && (
           <Tooltip title={copied ? 'Copied!' : 'Copy Build ID'}>
             <IconButton size="small" onClick={handleCopy} sx={{ p: 0.25 }}>
               {copied ? <Check size={12} /> : <Copy size={12} />}
             </IconButton>
           </Tooltip>
         )}
-        {isBuilding ? (
+        {buildState === 'running' ? (
           <Chip label="Building" size="small" color="warning" icon={<CircularProgress size={10} color="inherit" />} sx={{ height: 18, fontSize: '0.65rem' }} />
+        ) : buildState === 'queued' ? (
+          <Chip label="Queued" size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
         ) : isLatest ? (
           <Chip label="Latest" size="small" color="success" sx={{ height: 18, fontSize: '0.65rem' }} />
         ) : null}
@@ -115,7 +119,7 @@ export default function BuildImageCard({ image, isLatest, variant = 'detail', is
 
       {/* ── Time ago / started ── */}
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-        {isBuilding ? `Started ${formatDistanceToNow(image.builtAt)}` : formatDistanceToNow(image.builtAt)}
+        {isPendingBuild ? `${buildState === 'queued' ? 'Queued' : 'Started'} ${formatDistanceToNow(image.builtAt)}` : formatDistanceToNow(image.builtAt)}
       </Typography>
 
       <Divider sx={{ mb: 1.5 }} />

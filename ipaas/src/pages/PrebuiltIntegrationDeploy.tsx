@@ -30,7 +30,7 @@ export default function PrebuiltIntegrationDeploy(scope: ProjectScope): JSX.Elem
   const { integration, configValues, clearAll } = usePrebuiltIntegrationConfig();
 
   const { projectId } = useProjectId(scope.project);
-  const { deploy, reset, progress, stepLabel, error, isDeploying, isSuccess, componentHandler, configSaveError } = useDeployPrebuiltIntegration();
+  const { deploy, reset, progress, stepLabel, error, errorSeverity, isDeploying, isSuccess, componentHandler, configSaveError } = useDeployPrebuiltIntegration();
   const hasDeployedRef = useRef(false);
   const [configAlertDismissed, setConfigAlertDismissed] = useState(false);
 
@@ -77,7 +77,7 @@ export default function PrebuiltIntegrationDeploy(scope: ProjectScope): JSX.Elem
   if (error) {
     return (
       <PageContent sx={{ pt: 5, display: 'flex', flexDirection: 'column', flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <Alert severity="error" sx={{ maxWidth: 480, width: '100%', mb: 3 }}>
+        <Alert severity={errorSeverity} sx={{ maxWidth: 480, width: '100%', mb: 3 }}>
           {error}
         </Alert>
         <Button

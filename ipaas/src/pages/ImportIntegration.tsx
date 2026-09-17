@@ -24,6 +24,7 @@ import { useLocation } from 'react-router';
 import { useAppNavigate } from '../hooks/useAppNavigate';
 import BusyFields from '../components/common/BusyFields';
 import { useCreateComponent } from '../hooks/useComponents';
+import { isQuotaError } from '../utils/apiErrors';
 import type { DisplayType } from '../types/component';
 import { useGitHubUserRepos, useRepoBranches, useRepoContents, useRepoMetadata, useComponentNameAvailability } from '../hooks/useRepository';
 import type { DetectedMode } from '../types/repository';
@@ -755,6 +756,7 @@ export default function ImportIntegration(scope: ProjectScope): JSX.Element {
           isPending={createComponent.isPending}
           isSuccess={createComponent.isSuccess}
           error={createComponent.isError ? (createComponent.error?.message ?? 'Something went wrong. Please try again.') : null}
+          errorSeverity={isQuotaError(createComponent.error) ? 'warning' : 'error'}
           onBack={() => createComponent.reset()}
         />
       </PageContent>

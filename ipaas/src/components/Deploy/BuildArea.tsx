@@ -76,11 +76,13 @@ export default function BuildArea({
 }: BuildAreaProps): JSX.Element {
   // Determine build-in-progress state first so images can poll faster during active builds
   const { data: builds = [] } = useDeploymentStatus(componentId, versionId);
-  const inProgressBuild = builds.find((b) => b.status === 'in_progress' || b.status === 'queued') ?? null;
-  const isBuildInProgress = !!inProgressBuild;
-  const buildingCommit = inProgressBuild ? (commits.find((c) => c.sha === inProgressBuild.sha) ?? null) : null;
+  // Queued still blocks a deploy — the image it will produce does not exist yet.
+  const pendingBuild = builds.find((b) => b.status === 'in_progress' || b.status === 'queued') ?? null;
+  const isBuildPending = !!pendingBuild;
+  const isBuildRunning = pendingBuild?.status === 'in_progress';
+  const buildingCommit = pendingBuild ? (commits.find((c) => c.sha === pendingBuild.sha) ?? null) : null;
 
-  const { data: images = [], isLoading: imagesLoading } = useDeploymentTrackImages(componentId, versionId, isBuildInProgress ? 10_000 : undefined);
+  const { data: images = [], isLoading: imagesLoading } = useDeploymentTrackImages(componentId, versionId, isBuildPending ? 10_000 : undefined);
   const { data: firstEnvDeployment } = useComponentDeployment(orgHandler, orgUuid, componentId, versionId, firstEnvId);
   const firstEnvReleaseId = firstEnvDeployment?.releaseId ?? '';
 
@@ -96,7 +98,7 @@ export default function BuildArea({
   const [isPostBuildFetching, setIsPostBuildFetching] = useState(false);
 
   const splitButtonRef = useRef<HTMLDivElement>(null);
-  const prevIsBuildInProgressRef = useRef(isBuildInProgress);
+  const prevIsBuildPendingRef = useRef(isBuildPending);
 
   const qc = useQueryClient();
   const deployTrack = useDeployDeploymentTrack();
@@ -104,7 +106,7 @@ export default function BuildArea({
 
   // When build completes, trigger an immediate image refetch and show skeleton while it loads
   useEffect(() => {
-    if (prevIsBuildInProgressRef.current && !isBuildInProgress) {
+    if (prevIsBuildPendingRef.current && !isBuildPending) {
       setIsPostBuildFetching(true);
       qc.refetchQueries({ queryKey: ['deploymentTrackImages', componentId, versionId] })
         .then(() => {
@@ -114,8 +116,8 @@ export default function BuildArea({
           setIsPostBuildFetching(false);
         });
     }
-    prevIsBuildInProgressRef.current = isBuildInProgress;
-  }, [isBuildInProgress, componentId, versionId, qc]);
+    prevIsBuildPendingRef.current = isBuildPending;
+  }, [isBuildPending, componentId, versionId, qc]);
 
   // Keep selectedImage in sync with the latest image on normal loads
   useEffect(() => {
@@ -128,7 +130,7 @@ export default function BuildArea({
 
   const isLatest = selectedImage?.imageId === images[0]?.imageId;
   const isDeploying = deployTrack.isPending;
-  const canDeploy = !!selectedImage?.imageId && !!firstEnvId && !isDeploying && !isBuildInProgress;
+  const canDeploy = !!selectedImage?.imageId && !!firstEnvId && !isDeploying && !isBuildPending;
 
   const handleDeploy = () => {
     if (!canDeploy) return;
@@ -212,21 +214,21 @@ export default function BuildArea({
               <Skeleton variant="text" width="50%" sx={{ mb: 0.5 }} />
               <Skeleton variant="text" width="55%" />
             </Box>
-          ) : isBuildInProgress ? (
+          ) : isBuildPending ? (
             <Box sx={{ mb: 2 }}>
               <BuildImageCard
                 image={{
                   imageId: '',
-                  createdAt: inProgressBuild!.startedAt,
-                  updatedAt: inProgressBuild!.startedAt,
-                  commitHash: inProgressBuild!.sha,
-                  commitMessage: buildingCommit?.message ?? inProgressBuild!.sha.slice(0, 8),
-                  builtAt: inProgressBuild!.startedAt,
-                  runId: String(inProgressBuild!.id),
+                  createdAt: pendingBuild!.startedAt,
+                  updatedAt: pendingBuild!.startedAt,
+                  commitHash: pendingBuild!.sha,
+                  commitMessage: buildingCommit?.message ?? pendingBuild!.sha.slice(0, 8),
+                  builtAt: pendingBuild!.startedAt,
+                  runId: String(pendingBuild!.id),
                   author: buildingCommit?.author ? { name: buildingCommit.author.name, email: buildingCommit.author.email, date: buildingCommit.author.date, avatarUrl: buildingCommit.author.avatarUrl } : { name: '', email: '', date: '', avatarUrl: '' },
                 }}
                 isLatest={false}
-                isBuilding
+                buildState={isBuildRunning ? 'running' : 'queued'}
                 variant="detail"
               />
             </Box>
@@ -276,10 +278,10 @@ export default function BuildArea({
           <Box sx={{ position: 'relative' }}>
             <ButtonGroup variant="contained" size="small" ref={splitButtonRef} disabled={!canDeploy} sx={{ width: '100%' }}>
               <Button
-                startIcon={isDeploying || isBuildInProgress ? <CircularProgress color="inherit" size={14} /> : selectedDeployAction === 'deploy' ? <Rocket size={14} /> : <Settings size={14} />}
+                startIcon={isDeploying || isBuildRunning ? <CircularProgress color="inherit" size={14} /> : selectedDeployAction === 'deploy' ? <Rocket size={14} /> : <Settings size={14} />}
                 onClick={handleMainButtonClick}
                 sx={{ whiteSpace: 'nowrap', flex: 1 }}>
-                {isDeploying ? 'Deploying…' : isBuildInProgress ? 'Building & Deploying' : selectedDeployAction === 'deploy' ? 'Deploy' : 'Configure & Deploy'}
+                {isDeploying ? 'Deploying…' : isBuildRunning ? 'Building & Deploying' : isBuildPending ? 'Build queued' : selectedDeployAction === 'deploy' ? 'Deploy' : 'Configure & Deploy'}
               </Button>
               <Button size="small" sx={{ px: 0.5 }} aria-label="More deploy options" aria-expanded={splitOpen} onClick={() => setSplitOpen((prev) => !prev)}>
                 <ChevronDown size={14} />

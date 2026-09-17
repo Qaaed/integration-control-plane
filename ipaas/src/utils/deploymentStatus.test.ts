@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { deploymentPollInterval, isDeploymentHealthy } from './deploymentStatus';
+import { deploymentPollInterval, deploymentPollIntervalUntil, isDeploymentHealthy } from './deploymentStatus';
 
 describe('isDeploymentHealthy', () => {
   it('is true only for ACTIVE', () => {
@@ -64,5 +64,32 @@ describe('deploymentPollInterval', () => {
     expect(deploymentPollInterval('SUSPENDED', 8000)).toBe(false);
     expect(deploymentPollInterval(null, 8000)).toBe(false);
     expect(deploymentPollInterval(undefined, 8000)).toBe(false);
+  });
+});
+
+describe('deploymentPollIntervalUntil', () => {
+  const NOW = 1_000_000;
+
+  it('keeps polling a settled deployment while the requested window is open', () => {
+    expect(deploymentPollIntervalUntil('ACTIVE', 8000, NOW + 30_000, NOW)).toBe(8000);
+  });
+
+  it('stops once the window has expired', () => {
+    expect(deploymentPollIntervalUntil('ACTIVE', 8000, NOW - 1, NOW)).toBe(false);
+    expect(deploymentPollIntervalUntil('ACTIVE', 8000, 0, NOW)).toBe(false);
+  });
+
+  it('lets the status drive once the deployment is unsettled', () => {
+    expect(deploymentPollIntervalUntil('IN_PROGRESS', 8000, 0, NOW)).toBe(8000);
+    expect(deploymentPollIntervalUntil('ERROR', 8000, 0, NOW)).toBeGreaterThan(8000);
+  });
+
+  it('keeps polling an unsettled deployment after the window closes', () => {
+    expect(deploymentPollIntervalUntil('IN_PROGRESS', 8000, NOW - 60_000, NOW)).toBe(8000);
+  });
+
+  it('treats a never-deployed environment like any other settled state', () => {
+    expect(deploymentPollIntervalUntil(null, 8000, NOW - 1, NOW)).toBe(false);
+    expect(deploymentPollIntervalUntil(undefined, 8000, NOW + 30_000, NOW)).toBe(8000);
   });
 });

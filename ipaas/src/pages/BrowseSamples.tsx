@@ -21,6 +21,7 @@ import { ArrowLeft, Search } from '@wso2/oxygen-ui-icons-react';
 import { useState, useMemo, useEffect, type JSX } from 'react';
 import { useAppNavigate } from '../hooks/useAppNavigate';
 import { useCreateComponent } from '../hooks/useComponents';
+import { isQuotaError } from '../utils/apiErrors';
 import FilterSection from '../components/FilterSection';
 import SampleGridCard from '../components/SampleGridCard';
 import IntegrationCreationLoader from '../components/IntegrationCreationLoader';
@@ -132,6 +133,7 @@ export default function BrowseSamples(scope: ProjectScope): JSX.Element {
           isPending={createComponent.isPending}
           isSuccess={createComponent.isSuccess}
           error={createComponent.isError ? (createComponent.error?.message ?? 'Something went wrong. Please try again.') : null}
+          errorSeverity={isQuotaError(createComponent.error) ? 'warning' : 'error'}
           onBack={() => {
             createComponent.reset();
             setDeployingSample(null);

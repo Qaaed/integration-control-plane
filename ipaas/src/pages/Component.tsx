@@ -43,6 +43,7 @@ import type { SelectedArtifact } from '../components/artifact-config';
 import { resourceUrl, broaden, type ComponentScope } from '../nav';
 import { useLoadComponentPermissions } from '../hooks/usePermissionLoader';
 import BuildCard from '../components/BuildCard';
+import { latestCommitOf } from '../utils/commits';
 import { UUID_RE } from '../utils/string';
 import { RAG_NO_SOURCE_SUBTYPES } from '../constants/ragIngestion';
 
@@ -122,7 +123,7 @@ export default function Component(scope: ComponentScope): JSX.Element {
   if (!component) return <NotFound message="Component not found" backTo={resourceUrl(broaden(scope)!, 'overview')} backLabel="Back to Project" />;
 
   const displayType = component.displayType ?? '';
-  const latestCommit = commits.find((c) => c.isLatest) ?? commits[0] ?? null;
+  const latestCommit = latestCommitOf(commits);
   // Types whose Overview rendering has been migrated to the new
   // `components/overview/<type>/` modules. Other types continue using
   // the legacy `<Environment>` until their own migration phase. Bridge
@@ -182,7 +183,7 @@ export default function Component(scope: ComponentScope): JSX.Element {
           {/* Latest build card */}
           {!hasCustomOverview && showBuildCard && (
             <>
-              <BuildCard componentId={component.id} versionId={versionId} latestCommit={latestCommit} />
+              <BuildCard componentId={component.id} versionId={versionId} commits={commits} />
             </>
           )}
 
@@ -199,7 +200,6 @@ export default function Component(scope: ComponentScope): JSX.Element {
               orgHandler={scope.org}
               projectHandler={project?.handler ?? ''}
               deploymentPipelineId={project?.defaultDeploymentPipelineId ?? ''}
-              latestCommit={latestCommit}
               isBuildInProgress={isBuildInProgress}
               module={overviewModule}
             />
@@ -218,7 +218,6 @@ export default function Component(scope: ComponentScope): JSX.Element {
                   orgHandler={scope.org}
                   versionId={versionId}
                   deploymentPipelineId={project?.defaultDeploymentPipelineId ?? ''}
-                  latestCommit={latestCommit}
                   apiId={component.apiId}
                   isBuildInProgress={isBuildInProgress}
                 />
