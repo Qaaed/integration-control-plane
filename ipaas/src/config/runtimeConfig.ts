@@ -31,6 +31,7 @@ interface RuntimeConfig {
   ASGARDEO_TOKEN_ENDPOINT?: string;
   ASGARDEO_SIGN_IN_REDIRECT_URL?: string;
   ASGARDEO_SCOPE?: string;
+  ASGARDEO_RESOURCE?: string;
   STS_TOKEN_ENDPOINT?: string;
   STS_CLIENT_ID?: string;
   STS_SCOPE?: string;
@@ -77,6 +78,7 @@ export interface ApiConfig {
   asgardeoTokenEndpoint: string;
   asgardeoSignInRedirectUrl: string;
   asgardeoScope: string;
+  asgardeoResource?: string;
   stsTokenEndpoint: string;
   stsClientId: string;
   stsScope: string;
@@ -229,6 +231,7 @@ export async function loadConfig(): Promise<void> {
       asgardeoTokenEndpoint: config.ASGARDEO_TOKEN_ENDPOINT || DEFAULT_CONFIG.asgardeoTokenEndpoint,
       asgardeoSignInRedirectUrl: config.ASGARDEO_SIGN_IN_REDIRECT_URL || DEFAULT_CONFIG.asgardeoSignInRedirectUrl,
       asgardeoScope: config.ASGARDEO_SCOPE || DEFAULT_CONFIG.asgardeoScope,
+      asgardeoResource: config.ASGARDEO_RESOURCE?.trim() || undefined,
       stsTokenEndpoint: config.STS_TOKEN_ENDPOINT || DEFAULT_CONFIG.stsTokenEndpoint,
       stsClientId: config.STS_CLIENT_ID || DEFAULT_CONFIG.stsClientId,
       stsScope: config.STS_SCOPE || '',
