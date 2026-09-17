@@ -1,37 +1,13 @@
 /**
- * The cloud journey: one fixture project, created, exercised and deleted.
+ * The cloud journey: one fixture project, created, exercised and deleted across seven groups.
  *
- * Six groups, each a scenario, each broken into the steps a reviewer would want named in a
- * failing run's log rather than one opaque pass/fail per scenario.
+ * One shared context, so the journey moves as a user does rather than reopening a window per
+ * test. Groups run in declaration order and are independent — a failed deploy still leaves
+ * import, page availability and cleanup to report. Only the fixture project is a hard
+ * dependency; without it every later group skips.
  *
- * One page for the whole journey
- * ------------------------------
- * Playwright gives every test its own context by default, which for a journey means a fresh
- * window and a fresh navigation per step — 14 windows, and every step re-entering from the org
- * home. This file opens one context in beforeAll and shares it, so the journey moves the way a
- * user does. Each group re-enters from a known place in its own beforeAll, so a group that fails
- * cannot strand the next one mid-page.
- *
- * The context still gets the project's `trace: 'retain-on-failure'` — Playwright instruments
- * any context made from the `browser` fixture, so tracing must not be started by hand here
- * (doing so fails with "Tracing has been already started").
- *
- * Ordering and failure isolation
- * ------------------------------
- * Groups run in declaration order (one worker, fullyParallel disabled for the cloud project).
- * Each group is internally `serial`, so its own steps stop at the first failure — but the groups
- * are independent: a failed deploy still leaves import, page availability and cleanup to run and
- * report, because those failures matter too.
- *
- * The one hard dependency is the fixture project. If 01 cannot produce it, every later group
- * skips with that reason: there is nowhere for them to run.
- *
- * Locator provenance
- * ------------------
- * Navbar and sidebar selectors come from a `playwright codegen` recording against the cloud
- * console, corrected against aria snapshots of real failing runs. Dialog copy and alert text
- * come from the console source (Project.tsx:314, :470, :518) and from screenshots of the running
- * app. Nothing here is invented.
+ * Tracing must not be started by hand: Playwright already instruments contexts made from the
+ * `browser` fixture, and a second start throws.
  */
 
 import { expect, test, type BrowserContext, type Locator, type Page } from '@playwright/test';
@@ -41,12 +17,8 @@ import { reseedSessionToken, waitForApiConfig } from '../../helpers/cloud-fixtur
 import { BUILD_TIMEOUT_MS, waitForBuildToSettle } from '../../helpers/build.js';
 import { cardFor, expandSidebar, expectNavItems, gotoOrgHome, openIntegration, openNavGroup, openProject } from '../../helpers/console-nav.js';
 
-/**
- * No retries. Two reasons, both learned from real runs: a retry replays a stateful journey from
- * a state the first pass already mutated, and Playwright restarts the worker after a failure —
- * which resets the module-level readiness flags below, so every later group skips itself on a
- * `projectReady` that is false only because the process is new.
- */
+// No retries: a failure restarts the worker, which resets the readiness flags below and would
+// skip every later group on a `projectReady` that is false only because the process is new.
 test.describe.configure({ retries: 0 });
 
 const PROJECT = 'IPAAS-E2E';
@@ -60,10 +32,7 @@ const INTEGRATION_TYPE = 'Integration as API';
 /** Deleting an integration is asynchronous: the row greys out, then goes. */
 const REMOVAL_TIMEOUT_MS = 5 * 60_000;
 
-/**
- * specs/cloud is only ever run by the `cloud` project — the `wip` project ignores the directory
- * — so the project name is given directly rather than read from testInfo.
- */
+// specs/cloud is only run by the `cloud` project, so the name is given rather than read.
 const orgHandler = getAuthContext('cloud').orgHandler;
 
 let context: BrowserContext;
@@ -87,22 +56,13 @@ test.afterAll(async () => {
   await context?.close();
 });
 
-// ---------------------------------------------------------------------------
 // Shared moves
-// ---------------------------------------------------------------------------
 
 /** The organization's project list, with the session topped up on the way in. */
 /**
- * Puts a fresh token in place, from a page that is actually on the console's origin.
- *
- * reseedSessionToken writes through page.evaluate, so it only reaches the console's localStorage
- * when the page is already there. Once a token expires the console bounces to the IdP's Gate, and
- * reseeding then writes to the IdP's origin instead — leaving the dead session untouched and the
- * run parked on the sign-in page. Observed on a dev run.
- *
- * config.json is served by nginx directly, so it parks the page on the right origin without the
- * SPA's auth redirect, which makes the reseed able to recover a session rather than only refresh
- * a live one.
+ * Reseeding writes through page.evaluate, so it must run on the console's origin; once a token
+ * lapses the page is the IdP's and the fresh token lands there instead. config.json is static,
+ * so it parks the page on the right origin without the SPA's auth redirect.
  */
 async function refreshSession(): Promise<void> {
   if (!process.env.E2E_TOKEN_MODE) return;
@@ -138,15 +98,8 @@ function samplesTab(): Locator {
 }
 
 /**
- * Reaches a create-integration control from the project overview.
- *
- * An empty project offers these inline: the Start quickly panel and "Import your own
- * Integration" sit on the overview itself. Once the project holds integrations they move behind
- * "Create an Integration", which leads to /components/new. Both are ordinary states.
- *
- * Keyed off the target control, not a section heading: an earlier version checked the heading
- * text and fell through to "Create an Integration" whenever that check did not resolve — a
- * button an empty project does not have.
+ * An empty project offers these inline; a populated one moves them behind 'Create an
+ * Integration'. Keyed off the target control, since an empty project has no such button.
  */
 async function reachCreateControl(target: Locator): Promise<void> {
   if (await target.isVisible({ timeout: 15_000 }).catch(() => false)) return;
@@ -163,10 +116,7 @@ function integrationRow(name: string): Locator {
   return page.getByRole('row').filter({ hasText: name });
 }
 
-/**
- * Both dialogs are type-to-confirm: Delete stays disabled until the typed name matches exactly
- * (screenshots of the running app; ProjectOverview.tsx does the same for projects).
- */
+/** Both dialogs are type-to-confirm: Delete stays disabled until the name matches exactly. */
 async function confirmRemoval(placeholder: string, name: string): Promise<void> {
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible({ timeout: 30_000 });
@@ -179,26 +129,20 @@ async function confirmRemoval(placeholder: string, name: string): Promise<void> 
 }
 
 /**
- * Deletes one integration and waits for its row to actually go.
- *
- * The row greys out first — Project.tsx keeps it in the table with an "<name> is being deleted"
- * label (:470) and drops the trash button (:518) — and the components list still counts it,
- * which is what keeps Delete Project disabled. So the row disappearing is the success signal,
- * not the dialog closing.
+ * The row greys out and stays counted (Project.tsx:470, :518) until deletion completes, which is
+ * what keeps Delete Project disabled — so the row disappearing is the success signal, not the
+ * dialog closing.
  */
 async function deleteIntegration(name: string): Promise<void> {
-  // `.first()` and a loop, not a single click: an interrupted run can leave more than one
-  // integration under the same display name — the BFF suffixes the handle on a conflict
-  // ("component name conflict, created with suffixed name") while the display name stays put.
-  // A bare click would then fail strict mode rather than clean up.
+  // An interrupted run leaves duplicates: the BFF suffixes the handle on a conflict while the
+  // display name stays put, so a bare click would fail strict mode rather than clean up.
   for (let attempt = 0; attempt < 5; attempt++) {
     const trash = page.getByRole('button', { name: `Delete ${name}` }).first();
     if (!(await trash.isVisible({ timeout: 5_000 }).catch(() => false))) break;
 
     await trash.click();
     await confirmRemoval('Enter integration name to confirm', name);
-    // Wait for this one's row to go before looking for the next: the row greys out first and
-    // still counts towards the components list while it does.
+    // This row must go before looking for the next; it greys out first and still counts.
     await expect(page.getByRole('button', { name: `Delete ${name}` })).toHaveCount(0, { timeout: REMOVAL_TIMEOUT_MS });
   }
 
@@ -214,9 +158,7 @@ async function waitForIntegrationsToLoad(): Promise<void> {
   ]);
 }
 
-// ---------------------------------------------------------------------------
 // 01 — the fixture project. Everything else depends on this one.
-// ---------------------------------------------------------------------------
 
 test.describe('01 fixture project @smoke', () => {
   test.describe.configure({ mode: 'serial' });
@@ -231,8 +173,7 @@ test.describe('01 fixture project @smoke', () => {
   });
 
   test('the organization home links to tutorials and Discord support', async () => {
-    // EXPLORE_GROUPS is rendered by Projects.tsx, i.e. the org project list — not the project
-    // overview, where an earlier spec looked for it. Hrefs from constants/exploreLinks.ts.
+    // EXPLORE_GROUPS is rendered by Projects.tsx, the org project list, not a project overview.
     await expect(page.getByRole('link', { name: 'Build an Automation' })).toHaveAttribute('href', /get-started\/build-automation$/);
     await expect(page.getByRole('link', { name: 'Get Support on Discord' })).toHaveAttribute('href', 'https://discord.com/invite/wso2');
   });
@@ -242,8 +183,7 @@ test.describe('01 fixture project @smoke', () => {
 
     const existing = page.getByText(PROJECT, { exact: true }).first();
     if (await existing.isVisible({ timeout: 10_000 }).catch(() => false)) {
-      // Reuse it, but empty it: 02 asserts the empty state, and a project inherited from a run
-      // whose cleanup did not finish still holds this journey's integrations.
+      // Emptied on reuse: 02 asserts the empty state, and a run whose cleanup failed leaves rows.
       await openProject(page, PROJECT);
       await waitForIntegrationsToLoad();
       for (const name of [SAMPLE, IMPORTED]) {
@@ -269,9 +209,8 @@ test.describe('01 fixture project @smoke', () => {
 
     if (!landed) {
       const reason = (await page.getByRole('alert').first().textContent().catch(() => null))?.trim() ?? '';
-      // The org's project quota is enforced by platform-api as a 402 and surfaced by the BFF as
-      // a 500, so the console shows a generic failure. Skipping keeps the run honest: the suite
-      // cannot create quota it does not have.
+      // Project quota is a 402 from platform-api surfaced as a 500, so the console shows a
+      // generic failure. Skipped rather than failed: the suite cannot create quota it lacks.
       test.skip(/quota|already exists|internal server error|failed to create/i.test(reason), `Project could not be created: ${reason || 'no error shown'}`);
       throw new Error(`Create Project did not land on the project. Alert: ${reason || 'none'}`);
     }
@@ -287,9 +226,7 @@ test.describe('01 fixture project @smoke', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // 02 — the empty state, before anything populates it
-// ---------------------------------------------------------------------------
 
 test.describe('02 empty project overview @smoke', () => {
   test.describe.configure({ mode: 'serial' });
@@ -316,8 +253,7 @@ test.describe('02 empty project overview @smoke', () => {
   });
 
   test('offers no import provider beyond the five supported ones', async () => {
-    // A regression guard on the provider row: a sixth appearing here means something shipped
-    // without a decision about it.
+    // A sixth provider appearing here means one shipped without a decision about it.
     await expect(page.getByRole('button', { name: /^Import from/ })).toHaveCount(5);
   });
 
@@ -333,16 +269,13 @@ test.describe('02 empty project overview @smoke', () => {
   });
 
   test('shows no integrations table while the project is empty', async () => {
-    // The positive assertion first: an absence assertion passes trivially against a page that
-    // has not rendered yet.
+    // Positive assertion first: absence passes trivially against a page that has not rendered.
     await expect(page.getByText('Start quickly', { exact: true })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('table')).toHaveCount(0);
   });
 });
 
-// ---------------------------------------------------------------------------
 // 03 — deploying a sample
-// ---------------------------------------------------------------------------
 
 test.describe('03 deploy a sample @smoke', () => {
   test.describe.configure({ mode: 'serial' });
@@ -387,17 +320,13 @@ test.describe('03 deploy a sample @smoke', () => {
     await openIntegration(page, SAMPLE);
     await expect(page.getByRole('heading', { name: 'Latest Build' })).toBeVisible({ timeout: 60_000 });
 
-    // A terminal state is the contract. Dev builds fail for environmental reasons, so the
-    // conclusion is recorded rather than asserted — a red suite there would report the
-    // environment, not the console.
+    // Recorded, not asserted: dev builds fail environmentally, and that is not the console.
     const status = await waitForBuildToSettle(page);
     test.info().annotations.push({ type: 'build', description: `${SAMPLE}: ${status}` });
   });
 });
 
-// ---------------------------------------------------------------------------
 // 04 — importing a public repository
-// ---------------------------------------------------------------------------
 
 test.describe('04 import an integration @smoke', () => {
   test.describe.configure({ mode: 'serial' });
@@ -418,9 +347,8 @@ test.describe('04 import an integration @smoke', () => {
     test.setTimeout(3 * 60_000);
     await page.getByRole('textbox', { name: 'Repository URL' }).fill(REPO_URL);
 
-    // Branch, sub-path and the names appear only once the repository resolves, which is a
-    // round-trip to GitHub. An empty branch list means the public API's hourly rate limit is
-    // spent — a real user hits the same wall, so it fails with that named cause.
+    // These appear only once the repository resolves through GitHub; an empty branch list means
+    // the public API's hourly rate limit is spent, which a real user hits too.
     await expect(page.getByRole('combobox', { name: /^Branch/ }), 'the repository did not resolve into a branch — GitHub public API rate limit is the usual cause').toContainText('main', { timeout: 60_000 });
     await expect(page.getByRole('textbox', { name: 'Repository Sub Path' })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Display Name' }), 'the display name was not derived from the repository').not.toHaveValue('');
@@ -439,8 +367,7 @@ test.describe('04 import an integration @smoke', () => {
 
   test('importing provisions the integration under its given name', async () => {
     test.setTimeout(4 * 60_000);
-    // Overwrites the name derived from the repository, so the integration is identifiable if
-    // cleanup ever fails.
+    // Overwrites the derived name, so a stranded integration is identifiable.
     await page.getByRole('textbox', { name: 'Display Name' }).fill(IMPORTED);
     await page.getByRole('button', { name: new RegExp(`^${INTEGRATION_TYPE}`) }).click();
 
@@ -459,13 +386,9 @@ test.describe('04 import an integration @smoke', () => {
   });
 
   test('the build section collapses and expands', async () => {
-    // Collapse and Expand are the same control under two tooltips, so each label appearing is
-    // what proves the section moved. Scoped to main and exact because the sidebar carries its
-    // own 'Expand sidebar' button.
-    //
-    // Driven from whichever state the section is already in: it does not reliably start
-    // expanded — observed starting collapsed on a real run — and asserting a starting state
-    // tests the previous test's leftovers rather than the toggle.
+    // One control under two tooltips, so each label appearing proves the section moved. Scoped
+    // to main because the sidebar has its own 'Expand sidebar', and driven from whichever state
+    // the section is in, which is not reliably expanded.
     const collapse = page.getByRole('main').getByRole('button', { name: 'Collapse', exact: true }).first();
     const expand = page.getByRole('main').getByRole('button', { name: 'Expand', exact: true }).first();
 
@@ -496,9 +419,7 @@ test.describe('04 import an integration @smoke', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // 05 — the populated overview, which only exists once 03 and 04 have run
-// ---------------------------------------------------------------------------
 
 test.describe('05 populated project overview @smoke', () => {
   test.describe.configure({ mode: 'serial' });
@@ -527,9 +448,7 @@ test.describe('05 populated project overview @smoke', () => {
     // The table proves the populated branch rendered; only then does absence mean anything.
     await expect(page.getByRole('table').first()).toBeVisible({ timeout: 30_000 });
 
-    // Current strings, verified against the running console. The removed spec asserted
-    // 'Import an Integration' and 'Get Started Quickly', which no longer exist — so it was
-    // passing against text that could never appear.
+    // Current strings: the removed spec asserted text that no longer exists, so it could only pass.
     await expect(page.getByText('Import your own Integration', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Start quickly', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Open Cloud Editor', exact: true })).toHaveCount(0);
@@ -575,9 +494,7 @@ test.describe('05 populated project overview @smoke', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // 06 — the pages each scope offers
-// ---------------------------------------------------------------------------
 
 test.describe('06 page availability @smoke', () => {
   test.describe.configure({ mode: 'serial' });
@@ -626,9 +543,7 @@ test.describe('06 page availability @smoke', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // 07 — cleanup, which is also the deletion coverage
-// ---------------------------------------------------------------------------
 
 test.describe('07 clean up @smoke', () => {
   test.describe.configure({ mode: 'serial' });
@@ -663,10 +578,8 @@ test.describe('07 clean up @smoke', () => {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 30_000 });
 
-    // Disabled while the project still holds integrations (ProjectOverview.tsx:120), so this
-    // doubles as proof the deletions above landed. The components query does not refetch while
-    // the test sits on the page, so each check gets a fresh load; the expect's own timeout is
-    // the wait, so there is no sleeping.
+    // Disabled while integrations remain (ProjectOverview.tsx:120), so this also proves the
+    // deletions landed. Reloaded each attempt because the components query does not refetch.
     const deleteProject = page.getByRole('button', { name: 'Delete Project', exact: true });
     let enabled = false;
     for (let attempt = 0; attempt < 12 && !enabled; attempt++) {
@@ -681,13 +594,9 @@ test.describe('07 clean up @smoke', () => {
     await page.getByRole('button', { name: 'Delete Project', exact: true }).click();
     await confirmRemoval('Enter project name to confirm', PROJECT);
 
-    // There is no success alert: ProjectOverview.tsx:72 navigates with router state that
-    // Projects.tsx:93 clears without rendering. The redirect is the first signal; the card
-    // going is the second, and it may grey out before it disappears.
-    //
-    // Raced against the failure branch (ProjectOverview.tsx:76) so a rejected delete reports
-    // the reason immediately, rather than timing out for two minutes on a heading that was
-    // never going to appear.
+    // No success alert exists (ProjectOverview.tsx:72 navigates with state Projects.tsx:93
+    // clears), so the redirect is the signal. Raced against the failure branch (:76) so a
+    // rejected delete reports its reason instead of timing out on a heading.
     const landed = page.getByRole('heading', { name: 'All Projects' });
     const rejected = page.getByRole('alert').filter({ hasText: /Failed to delete the project/i });
     await Promise.race([

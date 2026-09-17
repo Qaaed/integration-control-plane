@@ -23,13 +23,7 @@ const CLOUD_BASE_URL = process.env.E2E_CLOUD_BASE_URL ?? 'https://ipaas-console-
 // Thunder's Gate SPA intermittently stalls on its spinner; a fresh load clears it.
 const CLOUD_RETRIES = process.env.CI ? 2 : 1;
 
-/**
- * Where the run's report, traces, videos and screenshots are written.
- *
- * In-cluster this is /artifacts, an emptyDir the integration-tests kustomization mounts into
- * every suite alongside an uploader sidecar that ships it to the shared S3 bucket and hands
- * back a presigned link. Unset locally, so a developer run still writes beside the repo.
- */
+// /artifacts in-cluster, where an uploader sidecar ships the run to S3; unset locally.
 const ARTIFACT_DIR = process.env.E2E_ARTIFACT_DIR;
 
 // Selecting the setup by an explicit flag rather than by whether a token source happens

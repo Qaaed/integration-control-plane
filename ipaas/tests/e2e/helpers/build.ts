@@ -1,9 +1,4 @@
-/**
- * Waiting out a build.
- *
- * Extracted from deploy-sample and import-integration, which carried identical copies:
- * the same card is reached by both routes, so the wait belongs in one place.
- */
+/** Waiting out a build. */
 
 import { expect, type Page } from '@playwright/test';
 import { reseedSessionToken } from './cloud-fixtures.js';
@@ -20,14 +15,9 @@ export function buildStatus(page: Page) {
   return page.getByText(/^(Queued|In Progress|Completed|Failed|Cancelled|Timed Out)/).first();
 }
 
-/**
- * Polls in chunks, putting a fresh token in place between them. One 20-minute assertion would
- * outlive the token's hour in token mode, and the session cannot refresh itself there.
- *
- * Returns the terminal status text. Reaching *a* terminal state is the contract — a build that
- * fails for environmental reasons is reported by the caller rather than failing the run.
- */
+/** Returns the terminal status text; reaching *a* terminal state is the contract. */
 export async function waitForBuildToSettle(page: Page): Promise<string> {
+  // Chunked so a fresh token can go in between: one 20-minute assertion outlives the token.
   const CHUNK_MS = 4 * 60_000;
 
   for (let elapsed = 0; elapsed < BUILD_TIMEOUT_MS; elapsed += CHUNK_MS) {
@@ -37,10 +27,8 @@ export async function waitForBuildToSettle(page: Page): Promise<string> {
       .catch(() => false);
     if (finished) return (await buildStatus(page).textContent())?.trim() ?? '';
 
-    // Reseed from the console's own origin, then come back. A bare reseed here writes through
-    // page.evaluate to whatever origin the page is on — and if the token already lapsed, that is
-    // the IdP's sign-in page, so the fresh token would land in the wrong localStorage and the
-    // session would stay dead. config.json is static, so it does not redirect.
+    // Reseeding writes through page.evaluate, so it must run on the console's own origin — once
+    // a token lapses the page is the IdP's, and the fresh token would land in its localStorage.
     const here = page.url();
     await page.goto('/config.json', { waitUntil: 'domcontentloaded' });
     await reseedSessionToken(page);
