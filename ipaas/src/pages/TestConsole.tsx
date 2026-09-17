@@ -27,7 +27,7 @@ import { IS_CLOUD } from '../features';
 import { isBrowserReachable, visibilityUrlOptions } from '../utils/endpoints';
 import { useApimSwagger, useGenerateTestKey } from '../hooks/useApim';
 import { useComponentByHandler } from '../hooks/useComponents';
-import { useCreateEndpointTestKey, useEndpointSecurity } from '../hooks/useConsumers';
+import { useCreateEndpointTestKey, useEndpointPolicies, useEndpointSecurity } from '../hooks/useConsumers';
 import { useComponentDeployment, useEnvEndpoints } from '../hooks/useDeployments';
 import { useEnvironments } from '../hooks/useEnvironments';
 import { useOrgUuid } from '../hooks/useOrgUuid';
@@ -99,6 +99,9 @@ export default function TestConsole(scope: ComponentScope): JSX.Element {
     [component, selectedEnv, selectedEndpoint],
   );
   const { data: apiSecurity } = useEndpointSecurity(testKeyEndpointRef, IS_CLOUD && !!testKeyEndpointRef);
+  // Try-it-out runs in the browser, so the gateway must return CORS headers for this origin.
+  const { data: endpointPolicies } = useEndpointPolicies(testKeyEndpointRef, IS_CLOUD && !!testKeyEndpointRef);
+  const corsBlocked = IS_CLOUD && !!endpointPolicies && endpointPolicies.cors?.enabled === false;
   // The apip gateway host is where the api-key/JWT is actually enforced; the raw visibility URLs are
   // open (policy-engine not in path), so a test key means nothing there.
   const gatewayInvokeUrl = apiSecurity?.publicUrl ?? '';
@@ -349,24 +352,31 @@ export default function TestConsole(scope: ComponentScope): JSX.Element {
             ) : !testable && selectedVisibility ? (
               <Alert severity="info">{selectedVisibility.label} endpoints are not publicly accessible.</Alert>
             ) : swaggerWithServer ? (
-              <Box
-                sx={{
-                  '& .swagger-ui .topbar': { display: 'none' },
-                  '& .swagger-ui .information-container': { display: 'none' },
-                  '& .swagger-ui .scheme-container': { display: 'none' },
-                }}>
-                <SwaggerUI
-                  spec={swaggerWithServer}
-                  plugins={[HideTopPlugin]}
-                  docExpansion="list"
-                  requestInterceptor={(request) => {
-                    if (securityHeaderRef.current) {
-                      request.headers[TEST_KEY_HEADER] = securityHeaderRef.current;
-                    }
-                    return request;
-                  }}
-                />
-              </Box>
+              <>
+                {corsBlocked && (
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    This endpoint&apos;s CORS policy is disabled, so the browser will block these requests before they are sent. Enable CORS in the endpoint&apos;s settings, or call the endpoint with curl using the key above.
+                  </Alert>
+                )}
+                <Box
+                  sx={{
+                    '& .swagger-ui .topbar': { display: 'none' },
+                    '& .swagger-ui .information-container': { display: 'none' },
+                    '& .swagger-ui .scheme-container': { display: 'none' },
+                  }}>
+                  <SwaggerUI
+                    spec={swaggerWithServer}
+                    plugins={[HideTopPlugin]}
+                    docExpansion="list"
+                    requestInterceptor={(request) => {
+                      if (securityHeaderRef.current) {
+                        request.headers[TEST_KEY_HEADER] = securityHeaderRef.current;
+                      }
+                      return request;
+                    }}
+                  />
+                </Box>
+              </>
             ) : selectedEndpoint && !loadingSwagger ? (
               <Typography variant="body2" color="text.secondary">
                 No API definition available for this endpoint.
