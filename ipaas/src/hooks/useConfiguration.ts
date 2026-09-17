@@ -76,6 +76,8 @@ export function useSaveSchemaConfig() {
         qc.setQueryData(['schemaConfig', vars.projectId, vars.componentId, vars.envId, vars.deploymentTrackId, vars.commitHash], data);
       }
       qc.invalidateQueries({ queryKey: ['schemaConfig', vars.projectId, vars.componentId, vars.envId, vars.deploymentTrackId] });
+      // Saving config redeploys the integration; the whole prefix goes since the key carries org and version.
+      qc.invalidateQueries({ queryKey: ['componentDeployment'] });
     },
   });
 }

@@ -34,7 +34,6 @@ interface OverviewShellProps {
   orgHandler: string;
   projectHandler: string;
   deploymentPipelineId: string;
-  latestCommit?: { sha: string; message: string } | null;
   isBuildInProgress?: boolean;
   module: IntegrationModule;
 }
@@ -52,7 +51,7 @@ interface OverviewShellProps {
  * inherits them automatically; Tailscale-style outliers, which use
  * `CustomOverview`, are excluded by structure.
  */
-export default function OverviewShell({ component, identity, environments, versionId, projectId, orgHandler, projectHandler, deploymentPipelineId, latestCommit, isBuildInProgress, module }: OverviewShellProps): ReactNode {
+export default function OverviewShell({ component, identity, environments, versionId, projectId, orgHandler, projectHandler, deploymentPipelineId, isBuildInProgress, module }: OverviewShellProps): ReactNode {
   const { EnvCardBody, OverviewHeaderExtras } = module;
 
   if (!EnvCardBody) {
@@ -89,8 +88,7 @@ export default function OverviewShell({ component, identity, environments, versi
             orgHandler={orgHandler}
             projectHandler={projectHandler}
             deploymentPipelineId={deploymentPipelineId}
-            latestCommit={latestCommit}
-            isBuildInProgress={isBuildInProgress}
+                  isBuildInProgress={isBuildInProgress}
             module={module}
           />
           {i < environments.length - 1 && (

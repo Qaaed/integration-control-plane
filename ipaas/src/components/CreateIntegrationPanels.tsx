@@ -21,6 +21,7 @@ import { ArrowRight, GitHub, Plus, GitBranch } from '@wso2/oxygen-ui-icons-react
 import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
 import { useAppNavigate } from '../hooks/useAppNavigate';
 import { useCreateComponent } from '../hooks/useComponents';
+import { isQuotaError } from '../utils/apiErrors';
 import { useChoreoSampleImages } from '../hooks/useRepository';
 import { generateAndSaveGitHubState, validateAndClearGitHubState } from '../auth/tokenManager';
 import { IS_CLOUD } from '../features';
@@ -213,6 +214,7 @@ export default function CreateIntegrationPanels({ scope, heading }: CreateIntegr
           isPending={createComponent.isPending}
           isSuccess={createComponent.isSuccess}
           error={createComponent.isError ? (createComponent.error?.message ?? 'Something went wrong. Please try again.') : null}
+          errorSeverity={isQuotaError(createComponent.error) ? 'warning' : 'error'}
           onBack={() => {
             createComponent.reset();
             setDeployingSample(null);

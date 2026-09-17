@@ -67,6 +67,8 @@ export interface DeployPrebuiltIntegrationState {
   progress: number;
   stepLabel: string;
   error: string | null;
+  /** A plan limit is a boundary rather than a malfunction, so quota surfaces as a warning. */
+  errorSeverity: 'error' | 'warning';
   isDeploying: boolean;
   isSuccess: boolean;
   componentHandler: string | null;

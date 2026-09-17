@@ -83,7 +83,6 @@ export interface EnvCardSlotProps {
   envTemplateId: string;
 
   // page-level
-  latestCommit?: { sha: string; message: string } | null;
   isBuildInProgress?: boolean;
 
   // shell-derived deployment data (fetched once by the shell, shared by all slots)
@@ -91,6 +90,8 @@ export interface EnvCardSlotProps {
   deploymentStatusV2: string | null;
   hasDeployment: boolean;
   loadingDeployment: boolean;
+  /** The commit this environment is running — not the repo's newest. */
+  deployedCommit?: { sha: string; message?: string } | null;
   deployedCommitSha?: string;
   buildId?: string;
   releaseMgtReleaseId?: string;

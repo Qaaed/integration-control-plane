@@ -24,12 +24,14 @@ import { componentSubTypeFromSample, displayTypeFromSample } from '../constants/
 import { derivePrebuiltSlug } from '../utils/prebuilt';
 import { checkNameAvailability, fetchComponentDetail, fetchFirstEnvironment, fetchLatestCommitSha, savePrebuiltConfig } from '#api/prebuilt';
 import { IS_CLOUD } from '../features';
+import { isQuotaError } from '../utils/apiErrors';
 import type { DeployPrebuiltIntegrationInput, DeployPrebuiltIntegrationState } from '../types/prebuilt';
 
 const IDLE_STATE: DeployPrebuiltIntegrationState = {
   progress: 0,
   stepLabel: '',
   error: null,
+  errorSeverity: 'error',
   isDeploying: false,
   isSuccess: false,
   componentHandler: null,
@@ -52,7 +54,7 @@ export function useDeployPrebuiltIntegration() {
 
   const deploy = useCallback(async (input: DeployPrebuiltIntegrationInput) => {
     const { integration, orgHandler, projectId, configValues } = input;
-    setState({ progress: 0, stepLabel: 'Checking name availability…', error: null, isDeploying: true, isSuccess: false, componentHandler: null, configSaveError: false });
+    setState({ progress: 0, stepLabel: 'Checking name availability…', error: null, errorSeverity: 'error', isDeploying: true, isSuccess: false, componentHandler: null, configSaveError: false });
 
     let createdComponentId: string | null = null;
 
@@ -124,7 +126,13 @@ export function useDeployPrebuiltIntegration() {
           console.error('Failed to rollback component creation', { createdComponentId, orgHandler, projectId }, rollbackErr);
         }
       }
-      setState((s) => ({ ...s, error: 'Something went wrong while deploying the integration. Please try again.', isDeploying: false }));
+      // The BFF's wording names the resource and its limit, so a quota refusal is shown as sent.
+      setState((s) => ({
+        ...s,
+        error: err instanceof Error ? err.message : 'Something went wrong while deploying the integration. Please try again.',
+        errorSeverity: isQuotaError(err) ? 'warning' : 'error',
+        isDeploying: false,
+      }));
     }
   }, []);
 

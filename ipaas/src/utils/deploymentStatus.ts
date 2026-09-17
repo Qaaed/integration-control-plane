@@ -57,3 +57,15 @@ export function deploymentPollInterval(status: string | null | undefined, progre
   if (status === 'ERROR') return ERROR_POLL_MS;
   return false;
 }
+
+/** Long enough for the control plane to report a redeploy, short enough that an idle card stops asking. */
+export const REQUESTED_POLL_WINDOW_MS = 60_000;
+
+/**
+ * Poll cadence that also honours a requested window: the first fetch after an action can
+ * still report the old settled status, so stopping on it would end the poll before the
+ * redeploy shows up.
+ */
+export function deploymentPollIntervalUntil(status: string | null | undefined, progressingMs: number, pollUntilMs: number, now: number = Date.now()): number | false {
+  return deploymentPollInterval(status, progressingMs) || (now < pollUntilMs ? progressingMs : false);
+}

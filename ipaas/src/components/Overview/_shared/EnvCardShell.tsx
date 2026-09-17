@@ -25,7 +25,7 @@ import { useOrgUuid } from '../../../hooks/useOrgUuid';
 import type { Component } from '../../../types/component';
 import type { Environment } from '../../../types/environment';
 import type { EnvCardNotification, EnvCardSlotProps, IntegrationModule } from '../../../types/integration';
-import { deploymentPollInterval } from '../../../utils/deploymentStatus';
+import { deploymentPollIntervalUntil, REQUESTED_POLL_WINDOW_MS } from '../../../utils/deploymentStatus';
 import EnvCardHeader from './EnvCardHeader';
 
 interface EnvCardShellProps {
@@ -37,7 +37,6 @@ interface EnvCardShellProps {
   orgHandler: string;
   projectHandler: string;
   deploymentPipelineId: string;
-  latestCommit?: { sha: string; message: string } | null;
   isBuildInProgress?: boolean;
   module: IntegrationModule;
 }
@@ -60,24 +59,18 @@ const REFRESH_QUERY_KEYS = ['componentDeployment', 'envEndpoints', 'executionCon
  * type-specific data themselves. A module whose header differs entirely ships a
  * `CustomHeader`, rendered in place of the generic `EnvCardHeader`.
  */
-export default function EnvCardShell({ component, env, prevEnv, versionId, projectId, orgHandler, projectHandler, deploymentPipelineId, latestCommit, isBuildInProgress, module }: EnvCardShellProps): ReactNode {
+export default function EnvCardShell({ component, env, prevEnv, versionId, projectId, orgHandler, projectHandler, deploymentPipelineId, isBuildInProgress, module }: EnvCardShellProps): ReactNode {
   const queryClient = useQueryClient();
   const envOrgUuid = useOrgUuid() ?? '';
 
-  // Poll while unsettled (progressing, or failed but still able to recover) or briefly
-  // after an explicit action.
-  const [shouldPollOnce, setShouldPollOnce] = useState(false);
-  const [refetchInterval, setRefetchInterval] = useState<number | false>(false);
-  const { data: envDeployment, isLoading: loadingDeployment } = useComponentDeployment(orgHandler, envOrgUuid, component.id, versionId, env.id, { refetchInterval });
+  // Read from the query's own data so the cadence is recomputed after every fetch.
+  const [pollUntil, setPollUntil] = useState(0);
+  const { data: envDeployment, isLoading: loadingDeployment } = useComponentDeployment(orgHandler, envOrgUuid, component.id, versionId, env.id, {
+    refetchInterval: (query) => deploymentPollIntervalUntil(query.state.data?.deploymentStatusV2, 8000, pollUntil),
+  });
   const deploymentStatusV2 = envDeployment?.deploymentStatusV2 ?? null;
 
-  useEffect(() => {
-    const interval = deploymentPollInterval(deploymentStatusV2, 8000);
-    setRefetchInterval(interval || (shouldPollOnce ? 8000 : false));
-    if (shouldPollOnce && !interval) setShouldPollOnce(false);
-  }, [deploymentStatusV2, shouldPollOnce]);
-
-  const requestPoll = useCallback(() => setShouldPollOnce(true), []);
+  const requestPoll = useCallback(() => setPollUntil(Date.now() + REQUESTED_POLL_WINDOW_MS), []);
 
   // Transient success/error feedback raised by slot actions.
   const [notification, setNotification] = useState<EnvCardNotification | null>(null);
@@ -125,12 +118,12 @@ export default function EnvCardShell({ component, env, prevEnv, versionId, proje
     componentHandler: component.handler,
     deploymentPipelineId,
     envTemplateId: env.templateId ?? env.id,
-    latestCommit,
     isBuildInProgress,
     releaseId: envDeployment?.releaseId ?? '',
     deploymentStatusV2,
     hasDeployment: !!envDeployment,
     loadingDeployment,
+    deployedCommit: envDeployment?.build?.commit ?? null,
     deployedCommitSha: envDeployment?.build?.commit?.sha,
     buildId: envDeployment?.build?.buildId,
     releaseMgtReleaseId: envDeployment?.releaseMgtDeployment?.releaseMgtReleaseId,

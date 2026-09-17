@@ -42,6 +42,7 @@ export default function HeaderStatus({
   deploymentStatusV2,
   deployedCommitSha,
   onNotify,
+  requestPoll,
   releaseId,
   releaseMgtReleaseId,
   releaseMgtDeploymentId,
@@ -56,7 +57,10 @@ export default function HeaderStatus({
         <>
           <ConfigureButton onClick={() => setConfigureOpen(true)} />
           <ConfigureDrawer
-            onSaved={() => onNotify({ text: 'Configuration saved', severity: 'success', detail: 'A redeployment has been initiated so the integration picks up the new configuration.' })}
+            onSaved={() => {
+              requestPoll();
+              onNotify({ text: 'Configuration saved', severity: 'success', detail: 'A redeployment has been initiated so the integration picks up the new configuration.' });
+            }}
             open={configureOpen}
             onClose={() => setConfigureOpen(false)}
             orgHandler={orgHandler}

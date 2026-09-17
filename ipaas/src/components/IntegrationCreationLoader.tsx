@@ -28,10 +28,12 @@ interface IntegrationCreationLoaderProps {
   isPending: boolean;
   isSuccess: boolean;
   error?: string | null;
+  /** A plan limit is a boundary rather than a malfunction, so callers pass 'warning' for quota. */
+  errorSeverity?: 'error' | 'warning';
   onBack?: () => void;
 }
 
-export default function IntegrationCreationLoader({ label, subLabel, isPending, isSuccess, error, onBack }: IntegrationCreationLoaderProps): JSX.Element {
+export default function IntegrationCreationLoader({ label, subLabel, isPending, isSuccess, error, errorSeverity = 'error', onBack }: IntegrationCreationLoaderProps): JSX.Element {
   const [creationStep, setCreationStep] = useState<CreationStep>(CREATION_STEPS[0]);
 
   useEffect(() => {
@@ -56,7 +58,7 @@ export default function IntegrationCreationLoader({ label, subLabel, isPending, 
           flex: 1,
           gap: 3,
         }}>
-        <Alert severity="error" sx={{ maxWidth: 480, width: '100%' }}>
+        <Alert severity={errorSeverity} sx={{ maxWidth: 480, width: '100%' }}>
           {error}
         </Alert>
         {onBack && (

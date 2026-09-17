@@ -866,7 +866,7 @@ function AppLayoutInner(): JSX.Element {
           <Header.Actions>
             {IS_CLOUD && billingTrial && (
               <Tooltip title={trialEndLabel}>
-                <Chip label={`Trial · ${billingTrial.days_remaining} day${billingTrial.days_remaining === 1 ? '' : 's'} remaining`} color="warning" size="small" sx={{ fontWeight: 500, mr: 0.5 }} />
+                <Chip label={`Trial · ${billingTrial.days_remaining} day${billingTrial.days_remaining === 1 ? '' : 's'} remaining`} color="warning" size="medium" sx={{ fontWeight: 500, mx: 0.75 }} />
               </Tooltip>
             )}
             <ColorSchemeToggle />

@@ -18,13 +18,14 @@
 
 import { Alert, Button, Chip, CircularProgress, IconButton, ListingTable, Snackbar, Stack, TablePagination, Tooltip, Typography } from '@wso2/oxygen-ui';
 import { GitCommit, Settings } from '@wso2/oxygen-ui-icons-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useTriggerBuild } from '../../hooks/useDeployments';
 import type { Commit, Repository } from '../../types/repository';
 import type { BuildRun } from '../../types/deployment';
 import { BuildDrawerType } from '../../constants/build';
 import { useBuildAutoEffects } from '../../hooks/useBuildAutoEffects';
+import { findCommitBySha, latestCommitOf } from '../../utils/commits';
 import { formatDistanceToNow } from '../../utils/time';
 import BuildRightDrawer from './BuildRightDrawer';
 import BuildStatusLabel from './BuildStatusLabel';
@@ -78,7 +79,9 @@ export default function BuildHistory({ componentId, versionId, envId, branch, bu
     }
   }, [builds, searchParams, markAsOpened]);
 
-  const latestCommit = commits.find((c) => c.isLatest) ?? commits[0] ?? null;
+  const latestCommit = latestCommitOf(commits);
+  // Joined once per build rather than per cell: the table re-renders on paging and hover.
+  const commitMessages = useMemo(() => new Map(builds.map((b) => [b.id, findCommitBySha(commits, b.sourceCommitId)?.message ?? ''])), [builds, commits]);
 
   const isBuilding = triggerBuild.isPending || hasInProgress || justTriggered;
 
@@ -224,12 +227,19 @@ export default function BuildHistory({ componentId, versionId, envId, branch, bu
 
                 <ListingTable.Cell>
                   {build.sourceCommitId ? (
-                    <Stack direction="row" alignItems="center" gap={0.5}>
-                      <GitCommit size={12} style={{ opacity: 0.55 }} />
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                        {build.sourceCommitId.slice(0, 7)}
-                      </Typography>
-                    </Stack>
+                    <Tooltip title={commitMessages.get(build.id) || build.sourceCommitId} placement="bottom-start">
+                      <Stack direction="row" alignItems="center" gap={0.5} sx={{ minWidth: 0 }}>
+                        <GitCommit size={12} style={{ opacity: 0.55, flexShrink: 0 }} />
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace', flexShrink: 0 }}>
+                          {build.sourceCommitId.slice(0, 7)}
+                        </Typography>
+                        {commitMessages.get(build.id) && (
+                          <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {commitMessages.get(build.id)}
+                          </Typography>
+                        )}
+                      </Stack>
+                    </Tooltip>
                   ) : (
                     <Typography variant="body2" color="text.disabled">
                       —

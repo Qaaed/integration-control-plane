@@ -22,6 +22,7 @@ import { useEffect, useMemo, useState, type JSX } from 'react';
 import { useAppNavigate } from '../hooks/useAppNavigate';
 import { useDataPlanes } from '../hooks/useDataPlanes';
 import { useAddEnvironment } from '../hooks/useEnvironments';
+import { isQuotaError } from '../utils/apiErrors';
 import { useOrgUuid } from '../hooks/useOrgUuid';
 import { IS_CLOUD } from '../features';
 import BusyFields from '../components/common/BusyFields';
@@ -41,6 +42,7 @@ export default function CreateEnvironment(scope: OrgScope): JSX.Element {
   const [dataplaneId, setDataplaneId] = useState('');
   const [critical, setCritical] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorSeverity, setErrorSeverity] = useState<'error' | 'warning'>('error');
 
   // Default the data plane to the first available once the list loads.
   useEffect(() => {
@@ -54,6 +56,7 @@ export default function CreateEnvironment(scope: OrgScope): JSX.Element {
 
   const submit = () => {
     setError(null);
+    setErrorSeverity('error');
     if (!orgUuid) {
       setError("Couldn't determine your organization. Please reload and try again.");
       return;
@@ -74,7 +77,9 @@ export default function CreateEnvironment(scope: OrgScope): JSX.Element {
           if (err instanceof EnvironmentValidationError) {
             setError(err.field === 'name' ? 'An environment with this name already exists. Please choose a different name.' : 'The derived hostname is already in use. Try a different DNS prefix.');
           } else {
-            setError('Failed to create the environment. Please try again.');
+            // The BFF's wording names the resource and its limit, so it is shown as sent.
+            setErrorSeverity(isQuotaError(err) ? 'warning' : 'error');
+            setError(err instanceof Error ? err.message : 'Failed to create the environment. Please try again.');
           }
         },
       },
@@ -97,7 +102,7 @@ export default function CreateEnvironment(scope: OrgScope): JSX.Element {
       </Typography>
 
       {error && (
-        <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 3, maxWidth: 600 }}>
+        <Alert severity={errorSeverity} onClose={() => setError(null)} sx={{ mb: 3, maxWidth: 600 }}>
           {error}
         </Alert>
       )}

@@ -31,7 +31,7 @@ import { useTriggerComponent } from '../../hooks/useExecutions';
 import { useStopDeployment, useRedeployDeployment } from '../../hooks/useDeployments';
 import { GENERIC_SERVICE_TYPES } from '../../constants/integrations';
 import { nextCronRunMs, formatTimeUntil, describeCron } from '../../utils/cronUtils';
-import { deploymentPollInterval } from '../../utils/deploymentStatus';
+import { deploymentPollIntervalUntil, REQUESTED_POLL_WINDOW_MS } from '../../utils/deploymentStatus';
 import EnvironmentCardHeader from './EnvironmentCardHeader';
 import EnvironmentCardBody from './EnvironmentCardBody';
 import RunWithArgsDialog from '../Overview/automation/RunWithArgsDialog';
@@ -51,12 +51,11 @@ interface EnvironmentProps {
   orgHandler: string;
   versionId: string;
   deploymentPipelineId: string;
-  latestCommit?: { sha: string; message: string } | null;
   apiId?: string;
   isBuildInProgress?: boolean;
 }
 
-export default function Environment({ env, prevEnv, componentId, projectId, componentType: _componentType, displayType, componentHandler, projectHandler, orgHandler, versionId, deploymentPipelineId, latestCommit, apiId, isBuildInProgress }: EnvironmentProps) {
+export default function Environment({ env, prevEnv, componentId, projectId, componentType: _componentType, displayType, componentHandler, projectHandler, orgHandler, versionId, deploymentPipelineId, apiId, isBuildInProgress }: EnvironmentProps) {
   const isAutomation = (displayType ?? '').toLowerCase() === 'scheduledtask';
   const isGenericService = GENERIC_SERVICE_TYPES.has(displayType ?? '');
   const queryClient = useQueryClient();
@@ -74,31 +73,20 @@ export default function Environment({ env, prevEnv, componentId, projectId, comp
   const envOrgUuid = useOrgUuid() ?? '';
 
   const fetchDeployment = isAutomation || isGenericService;
-  // Poll for transitional states or briefly after explicit stop/redeploy actions
-  const [serviceRefetchInterval, setServiceRefetchInterval] = useState<number | false>(false);
-  const [shouldPollOnce, setShouldPollOnce] = useState(false);
+  // Read from the query's own data so the cadence is recomputed after every fetch.
+  const [pollUntil, setPollUntil] = useState(0);
   const { data: envDeployment, isLoading: loadingEnvDeployment } = useComponentDeployment(
     fetchDeployment ? orgHandler : '',
     fetchDeployment ? envOrgUuid : '',
     fetchDeployment ? componentId : '',
     fetchDeployment ? versionId : '',
     fetchDeployment ? env.id : '',
-    { refetchInterval: isGenericService ? serviceRefetchInterval : undefined },
+    { refetchInterval: (query) => (isGenericService ? deploymentPollIntervalUntil(query.state.data?.deploymentStatusV2, 8000, pollUntil) : false) },
   );
 
   const deploymentStatusV2 = envDeployment?.deploymentStatusV2 ?? null;
 
-  // Poll only while unsettled (progressing, or failed but still able to recover) or
-  // briefly after explicit user actions
-  useEffect(() => {
-    if (!isGenericService) return;
-    const interval = deploymentPollInterval(deploymentStatusV2, 8000);
-    setServiceRefetchInterval(interval || (shouldPollOnce ? 8000 : false));
-    // Clear the once-flag when status has settled to a stable state
-    if (shouldPollOnce && !interval) {
-      setShouldPollOnce(false);
-    }
-  }, [isGenericService, deploymentStatusV2, shouldPollOnce]);
+  const requestPoll = useCallback(() => setPollUntil(Date.now() + REQUESTED_POLL_WINDOW_MS), []);
 
   const envReleaseId = envDeployment?.releaseId ?? '';
 
@@ -189,7 +177,7 @@ export default function Environment({ env, prevEnv, componentId, projectId, comp
       { orgHandler, componentId, releaseId: envReleaseId, ...(IS_CLOUD ? { environment: env.id } : {}), type: displayType ?? '', clearCron: false },
       {
         onSuccess: () => {
-          setShouldPollOnce(true);
+          requestPoll();
           setNotification({ text: 'Deployment stopped successfully', severity: 'success' });
         },
         onError: (err) => setNotification({ text: err instanceof Error ? err.message : 'Failed to stop deployment', severity: 'error' }),
@@ -209,7 +197,7 @@ export default function Environment({ env, prevEnv, componentId, projectId, comp
       },
       {
         onSuccess: () => {
-          setShouldPollOnce(true);
+          requestPoll();
           setNotification({ text: 'Deployment started successfully', severity: 'success' });
         },
         onError: (err) => setNotification({ text: err instanceof Error ? err.message : 'Failed to start deployment', severity: 'error' }),
@@ -238,7 +226,7 @@ export default function Environment({ env, prevEnv, componentId, projectId, comp
         <EnvironmentCardHeader
           envName={env.name}
           envCritical={env.critical}
-          latestCommit={latestCommit}
+          deployedCommit={envDeployment?.build?.commit ?? null}
           isAutomation={isAutomation}
           isGenericService={isGenericService}
           deploymentStatusV2={deploymentStatusV2}
@@ -334,6 +322,7 @@ export default function Environment({ env, prevEnv, componentId, projectId, comp
       <ConfigureDrawer
         open={configureOpen}
         onClose={() => setConfigureOpen(false)}
+        onSaved={() => requestPoll()}
         orgHandler={orgHandler}
         projectId={projectId}
         componentId={componentId}
