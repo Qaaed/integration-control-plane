@@ -355,7 +355,8 @@ export default function TestConsole(scope: ComponentScope): JSX.Element {
               <>
                 {corsBlocked && (
                   <Alert severity="warning" sx={{ mb: 2 }}>
-                    This endpoint&apos;s CORS policy is disabled, so the browser will block these requests before they are sent. Enable CORS in the endpoint&apos;s settings, or call the endpoint with curl using the key above.
+                    CORS is disabled on this endpoint, so the gateway returns no Access-Control-Allow-Origin and the browser will not let this page use the responses — a request carrying the key header is refused at the preflight. Enable CORS in the
+                    endpoint&apos;s settings, or call the endpoint with curl using the key above.
                   </Alert>
                 )}
                 <Box

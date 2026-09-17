@@ -77,7 +77,7 @@ export default function CorsSection({ value, onChange, disabled }: CorsSectionPr
 
       {!value.enabled && (
         <Alert severity="warning" sx={{ mt: -0.5 }}>
-          With CORS off the gateway sends no Access-Control-Allow-Origin, so no browser can call this endpoint — including the Test Console. Server-side callers (curl, backends) are unaffected.
+          With CORS off the gateway returns no Access-Control-Allow-Origin, so browsers cannot use responses from this endpoint — the Test Console included. Server-side callers (curl, backends) are unaffected.
         </Alert>
       )}
 
