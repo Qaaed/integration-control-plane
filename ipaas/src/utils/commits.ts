@@ -30,13 +30,13 @@ const MIN_SHA_LENGTH = 7;
 export function findCommitBySha(commits: Commit[] | undefined, sha: string | undefined): Commit | null {
   if (!commits?.length || !sha || sha.length < MIN_SHA_LENGTH) return null;
   const target = sha.toLowerCase();
-  return (
-    commits.find((c) => {
-      const candidate = c.sha?.toLowerCase();
-      if (!candidate || candidate.length < MIN_SHA_LENGTH) return false;
-      return candidate.startsWith(target) || target.startsWith(candidate);
-    }) ?? null
-  );
+  const matches = commits.filter((c) => {
+    const candidate = c.sha?.toLowerCase();
+    if (!candidate || candidate.length < MIN_SHA_LENGTH) return false;
+    return candidate.startsWith(target) || target.startsWith(candidate);
+  });
+  // An abbreviation that matches two commits identifies neither.
+  return matches.length === 1 ? matches[0] : null;
 }
 
 /** The repo's newest commit: what the source header shows, and what a "build latest" action targets. */

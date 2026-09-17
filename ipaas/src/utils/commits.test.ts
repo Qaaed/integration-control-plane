@@ -56,6 +56,16 @@ describe('findCommitBySha', () => {
     expect(findCommitBySha([commit('bbb', 'truncated')], 'bbbbbbb2222222222222222222222222222222222')).toBeNull();
   });
 
+  it('returns null when a prefix matches more than one commit', () => {
+    const ambiguous = [commit('abc1234aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'first'), commit('abc1234bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 'second')];
+    expect(findCommitBySha(ambiguous, 'abc1234')).toBeNull();
+  });
+
+  it('still resolves an unambiguous commit alongside near-misses', () => {
+    const history = [commit('abc1234aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'first'), commit('abc1235bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', 'second')];
+    expect(findCommitBySha(history, 'abc1234a')?.message).toBe('first');
+  });
+
   it('returns null for empty inputs', () => {
     expect(findCommitBySha([], 'aaaaaaa1')).toBeNull();
     expect(findCommitBySha(history, '')).toBeNull();
