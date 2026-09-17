@@ -20,6 +20,14 @@ export async function waitForBuildToSettle(page: Page): Promise<string> {
   // Chunked so a fresh token can go in between: one 20-minute assertion outlives the token.
   const CHUNK_MS = 4 * 60_000;
 
+  // Captured before any polling. Read at recovery time instead, a session that lapsed mid-chunk
+  // would already have redirected the SPA, and this would send the run back to the sign-in page.
+  const buildPage = page.url();
+
+  // Before the first chunk too, so the whole wait runs on a token with its full lifetime rather
+  // than on whatever the preceding tests left of one.
+  await reseedFromConsoleOrigin(page, buildPage);
+
   for (let elapsed = 0; elapsed < BUILD_TIMEOUT_MS; elapsed += CHUNK_MS) {
     const finished = await expect(buildStatus(page))
       .toHaveText(TERMINAL_STATUS, { timeout: CHUNK_MS })
@@ -27,14 +35,16 @@ export async function waitForBuildToSettle(page: Page): Promise<string> {
       .catch(() => false);
     if (finished) return (await buildStatus(page).textContent())?.trim() ?? '';
 
-    // Reseeding writes through page.evaluate, so it must run on the console's own origin — once
-    // a token lapses the page is the IdP's, and the fresh token would land in its localStorage.
-    const here = page.url();
-    await page.goto('/config.json', { waitUntil: 'domcontentloaded' });
-    await reseedSessionToken(page);
-    await page.goto(here, { waitUntil: 'domcontentloaded' });
-    await expect(page.getByRole('heading', { name: 'Latest Build' })).toBeVisible({ timeout: 60_000 });
+    await reseedFromConsoleOrigin(page, buildPage);
   }
 
   throw new Error(`Build did not reach a terminal state within ${BUILD_TIMEOUT_MS / 60_000} minutes; last status: ${await buildStatus(page).textContent()}`);
+}
+
+/** Reseeding writes through page.evaluate, so it only reaches the console's own localStorage. */
+async function reseedFromConsoleOrigin(page: Page, returnTo: string): Promise<void> {
+  await page.goto('/config.json', { waitUntil: 'domcontentloaded' });
+  await reseedSessionToken(page);
+  await page.goto(returnTo, { waitUntil: 'domcontentloaded' });
+  await expect(page.getByRole('heading', { name: 'Latest Build' })).toBeVisible({ timeout: 60_000 });
 }

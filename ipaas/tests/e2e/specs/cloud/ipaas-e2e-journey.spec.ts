@@ -111,6 +111,11 @@ async function reachCreateControl(target: Locator): Promise<void> {
   await expect(target, 'the create surface did not offer the expected control').toBeVisible({ timeout: 30_000 });
 }
 
+/** Whether the project currently lists an integration under this display name. */
+async function isPresent(name: string): Promise<boolean> {
+  return page.getByRole('button', { name: `Delete ${name}` }).first().isVisible({ timeout: 5_000 }).catch(() => false);
+}
+
 /** The row for an integration in the project's Integrations table. */
 function integrationRow(name: string): Locator {
   return page.getByRole('row').filter({ hasText: name });
@@ -151,11 +156,10 @@ async function deleteIntegration(name: string): Promise<void> {
 
 /** Waits for the integrations list to resolve, so an unloaded table is not read as empty. */
 async function waitForIntegrationsToLoad(): Promise<void> {
-  const ourRows = integrationRow(SAMPLE).or(integrationRow(IMPORTED));
-  await Promise.race([
-    ourRows.first().waitFor({ state: 'visible', timeout: 60_000 }).catch(() => {}),
-    page.getByText('Start quickly', { exact: true }).waitFor({ state: 'visible', timeout: 60_000 }).catch(() => {}),
-  ]);
+  // One state or the other must render. Returning on neither is what let an unloaded table read
+  // as empty, which is the bug this helper exists to prevent.
+  const settled = integrationRow(SAMPLE).or(integrationRow(IMPORTED)).or(page.getByText('Start quickly', { exact: true }));
+  await expect(settled.first(), 'the project showed neither its integrations nor the empty state').toBeVisible({ timeout: 60_000 });
 }
 
 // 01 — the fixture project. Everything else depends on this one.
@@ -315,14 +319,15 @@ test.describe('03 deploy a sample @smoke', () => {
     await expect(integrationRow(SAMPLE)).toHaveCount(1);
   });
 
-  test('the sample build reaches a terminal state', async () => {
+  test('the sample build completes', async () => {
     test.setTimeout(BUILD_TIMEOUT_MS + 2 * 60_000);
     await openIntegration(page, SAMPLE);
     await expect(page.getByRole('heading', { name: 'Latest Build' })).toBeVisible({ timeout: 60_000 });
 
-    // Recorded, not asserted: dev builds fail environmentally, and that is not the console.
     const status = await waitForBuildToSettle(page);
     test.info().annotations.push({ type: 'build', description: `${SAMPLE}: ${status}` });
+    // A build that never settles already fails the run, so one that settles on Failed must too.
+    expect(status, `${SAMPLE} build ended as ${status}`).toMatch(/^Completed/);
   });
 });
 
@@ -412,10 +417,11 @@ test.describe('04 import an integration @smoke', () => {
     await expect(page.getByRole('button', { name: 'View Logs' }).first()).toBeVisible({ timeout: 30_000 });
   });
 
-  test('the imported build reaches a terminal state', async () => {
+  test('the imported build completes', async () => {
     test.setTimeout(BUILD_TIMEOUT_MS + 2 * 60_000);
     const status = await waitForBuildToSettle(page);
     test.info().annotations.push({ type: 'build', description: `${IMPORTED}: ${status}` });
+    expect(status, `${IMPORTED} build ended as ${status}`).toMatch(/^Completed/);
   });
 });
 
@@ -555,14 +561,16 @@ test.describe('07 clean up @smoke', () => {
   });
 
   test('the deployed sample is removed and its row disappears', async () => {
-    test.skip(!sampleReady, 'No sample was deployed');
     test.setTimeout(REMOVAL_TIMEOUT_MS + 60_000);
+    // Gated on what the project actually holds, not on a flag: a group that created something
+    // and then failed before setting its flag would otherwise strand it on a shared org.
+    test.skip(!(await isPresent(SAMPLE)), `${SAMPLE} is not in the project`);
     await deleteIntegration(SAMPLE);
   });
 
   test('the imported integration is removed and its row disappears', async () => {
-    test.skip(!importReady, 'No integration was imported');
     test.setTimeout(REMOVAL_TIMEOUT_MS + 60_000);
+    test.skip(!(await isPresent(IMPORTED)), `${IMPORTED} is not in the project`);
     await deleteIntegration(IMPORTED);
   });
 
