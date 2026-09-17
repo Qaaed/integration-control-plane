@@ -13,12 +13,11 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import { getAuthContext } from '../../helpers/auth-context.js';
 import { authStatePath } from '../../helpers/product.js';
-import { reseedSessionToken, waitForApiConfig } from '../../helpers/cloud-fixtures.js';
+import { expectPageRendered, reseedSessionToken, waitForApiConfig } from '../../helpers/cloud-fixtures.js';
 import { BUILD_TIMEOUT_MS, waitForBuildToSettle } from '../../helpers/build.js';
 import { cardFor, expandSidebar, expectNavItems, gotoOrgHome, openIntegration, openNavGroup, openProject } from '../../helpers/console-nav.js';
 
-// No retries: a failure restarts the worker, which resets the readiness flags below and would
-// skip every later group on a `projectReady` that is false only because the process is new.
+// No retries: a retry would replay a stateful journey against state the first pass mutated.
 test.describe.configure({ retries: 0 });
 
 const PROJECT = 'IPAAS-E2E';
@@ -29,22 +28,29 @@ const REPO_URL = 'https://github.com/dokimibot/sample-integrations';
 const REPO_SUBDIR = 'greeting-service';
 const INTEGRATION_TYPE = 'Integration as API';
 
+/** Order matters: this is the order AppLayout renders them in. Hrefs from paths.ts. */
+const FOOTER_LINKS = [
+  ['Documentation', 'https://wso2.com/integration-platform/docs/'],
+  ['Terms of Use', 'https://wso2.com/integration-platform/terms-of-use'],
+  ['Privacy Policy', 'https://wso2.com/privacy-policy'],
+  ['Support', 'https://discord.com/invite/wso2'],
+] as const;
+
 /** Deleting an integration is asynchronous: the row greys out, then goes. */
 const REMOVAL_TIMEOUT_MS = 5 * 60_000;
 
-// specs/cloud is only run by the `cloud` project, so the name is given rather than read.
-const orgHandler = getAuthContext('cloud').orgHandler;
+const CLOUD_SECTIONS = ['Org Details', 'Package Registries'] as const;
+const WIP_ONLY_SECTIONS = ['Access Control', 'Egress Control', 'Workflows', 'Credentials', 'On-Prem Keys', 'Application Security'] as const;
+
+// Read in beforeAll, not at module scope: module scope is evaluated when Playwright collects
+// the file, which is before the setup project has written the context it reads.
+let orgHandler = '';
 
 let context: BrowserContext;
 let page: Page;
 
-/** Set by 01. Every later group skips on this rather than failing for a missing fixture. */
-let projectReady = false;
-/** Set by 03 and 04, so later groups only look for what actually got created. */
-let sampleReady = false;
-let importReady = false;
-
 test.beforeAll(async ({ browser }, testInfo) => {
+  orgHandler = getAuthContext(testInfo.project.name).orgHandler;
   context = await browser.newContext({
     storageState: authStatePath(testInfo.project.name),
     baseURL: testInfo.project.use.baseURL,
@@ -89,6 +95,20 @@ async function enterOrgHome(): Promise<void> {
 /** The fixture project's overview, entered the way a user gets there. */
 async function enterProject(): Promise<void> {
   await enterOrgHome();
+  await openProject(page, PROJECT);
+}
+
+/**
+ * Enters the fixture project, skipping the group when it does not exist.
+ *
+ * Asked of the environment rather than remembered in a variable: Playwright starts a fresh worker
+ * after a failed test, so a module-level flag is back to false for every later group and would
+ * skip them all on the strength of one unrelated failure.
+ */
+async function enterProjectOrSkip(): Promise<void> {
+  await enterOrgHome();
+  const exists = await page.getByText(PROJECT, { exact: true }).first().isVisible({ timeout: 15_000 }).catch(() => false);
+  test.skip(!exists, `${PROJECT} does not exist — group 01 did not create it`);
   await openProject(page, PROJECT);
 }
 
@@ -195,7 +215,6 @@ test.describe('01 fixture project @smoke', () => {
           await deleteIntegration(name);
         }
       }
-      projectReady = true;
       test.info().annotations.push({ type: 'fixture', description: `${PROJECT} already existed; reused after clearing its integrations` });
       return;
     }
@@ -219,13 +238,11 @@ test.describe('01 fixture project @smoke', () => {
       throw new Error(`Create Project did not land on the project. Alert: ${reason || 'none'}`);
     }
 
-    projectReady = true;
     test.info().annotations.push({ type: 'fixture', description: `${PROJECT} created` });
   });
 
   test('the project opens on an overview headed by its name', async () => {
-    test.skip(!projectReady, `${PROJECT} was not created`);
-    await enterProject();
+    await enterProjectOrSkip();
     await expect(page.getByRole('heading', { name: PROJECT })).toBeVisible({ timeout: 60_000 });
   });
 });
@@ -236,8 +253,7 @@ test.describe('02 empty project overview @smoke', () => {
   test.describe.configure({ mode: 'serial' });
 
   test.beforeAll(async () => {
-    test.skip(!projectReady, `${PROJECT} was not created`);
-    await enterProject();
+    await enterProjectOrSkip();
   });
 
   test('offers to create an integration on Cloud', async () => {
@@ -279,14 +295,84 @@ test.describe('02 empty project overview @smoke', () => {
   });
 });
 
-// 03 — deploying a sample
+// 03 — browse samples
 
-test.describe('03 deploy a sample @smoke', () => {
+test.describe('03 browse samples @smoke', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  let browseSamplesUrl = '';
+
+  test.beforeAll(async () => {
+    await enterProjectOrSkip();
+    const match = page.url().match(/\/projects\/([^/?#]+)/);
+    if (!match) {
+      test.skip(true, 'Could not determine project handler from the URL after entering the project');
+      return;
+    }
+    browseSamplesUrl = `/organizations/${orgHandler}/projects/${match[1]}/components/new/samples`;
+
+    await page.goto(browseSamplesUrl, { waitUntil: 'domcontentloaded' });
+    await Promise.race([
+      page
+        .getByRole('heading', { name: 'Browse Samples' })
+        .waitFor({ state: 'visible', timeout: 30_000 })
+        .catch(() => {}),
+      page
+        .getByText('Failed to load samples. Please try again later.')
+        .waitFor({ state: 'visible', timeout: 30_000 })
+        .catch(() => {}),
+    ]);
+    await expect(
+      page.getByText('Failed to load samples. Please try again later.'),
+      'The samples service is down — this is a backend failure, not a UI regression',
+    ).not.toBeVisible();
+  });
+
+  test('shows the Browse Samples heading and subtitle', async () => {
+    await expect(page.getByRole('heading', { name: 'Browse Samples' })).toBeVisible();
+    await expect(page.getByText('Deploy a sample to get started quickly.')).toBeVisible();
+  });
+
+  test('shows a Back button to the integration creation options', async () => {
+    await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeVisible();
+  });
+
+  test('shows the sample search input', async () => {
+    await expect(page.getByPlaceholder('Search samples…')).toBeVisible();
+  });
+
+  test('shows the Type, Technology and Tags filter sections', async () => {
+    await expect(page.getByRole('button', { name: 'Type', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Technology', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Tags', exact: true })).toBeVisible();
+  });
+
+  test('a search with no matches shows the empty-result message', async () => {
+    // Every SampleGridCard renders a "Quick Deploy" button — asserting on it first confirms
+    // real results are showing before we search them away.
+    await expect(page.getByRole('button', { name: 'Quick Deploy' }).first()).toBeVisible();
+    await page.getByPlaceholder('Search samples…').fill(`no-such-sample-${Date.now()}`);
+    await expect(page.getByText('No samples match your search.')).toBeVisible();
+  });
+
+  test('clearing the search brings the results back', async () => {
+    const search = page.getByPlaceholder('Search samples…');
+    await search.fill(`no-such-sample-${Date.now()}`);
+    await expect(page.getByText('No samples match your search.')).toBeVisible();
+    await search.clear();
+    await expect(page.getByText('No samples match your search.')).not.toBeVisible();
+    await expect(page.getByRole('button', { name: 'Quick Deploy' }).first()).toBeVisible();
+  });
+
+});
+
+// 04 — deploying a sample
+
+test.describe('04 deploy a sample @smoke', () => {
   test.describe.configure({ mode: 'serial' });
 
   test.beforeAll(async () => {
-    test.skip(!projectReady, `${PROJECT} was not created`);
-    await enterProject();
+    await enterProjectOrSkip();
   });
 
   test('the Samples tab lists Hello World Service', async () => {
@@ -302,7 +388,6 @@ test.describe('03 deploy a sample @smoke', () => {
 
     // The deploy runs through a progress page before settling on the integration's overview.
     await expect(page.getByRole('heading', { name: SAMPLE })).toBeVisible({ timeout: 2 * 60_000 });
-    sampleReady = true;
   });
 
   test('the integration overview reports a build', async () => {
@@ -331,14 +416,13 @@ test.describe('03 deploy a sample @smoke', () => {
   });
 });
 
-// 04 — importing a public repository
+// 05 — importing a public repository
 
-test.describe('04 import an integration @smoke', () => {
+test.describe('05 import an integration @smoke', () => {
   test.describe.configure({ mode: 'serial' });
 
   test.beforeAll(async () => {
-    test.skip(!projectReady, `${PROJECT} was not created`);
-    await enterProject();
+    await enterProjectOrSkip();
   });
 
   test('the import form opens from the project', async () => {
@@ -370,6 +454,8 @@ test.describe('04 import an integration @smoke', () => {
     await expect(dialog).not.toBeVisible();
   });
 
+  // Provisioning is where this group ends: the build itself is covered once, by the sample in 03,
+  // and building a second integration only repeats it at the cost of another wait.
   test('importing provisions the integration under its given name', async () => {
     test.setTimeout(4 * 60_000);
     // Overwrites the derived name, so a stranded integration is identifiable.
@@ -382,7 +468,6 @@ test.describe('04 import an integration @smoke', () => {
 
     await expect(page.getByRole('heading', { name: IMPORTED })).toBeVisible({ timeout: 2 * 60_000 });
     await expect(page.getByRole('heading', { name: 'Latest Build' })).toBeVisible({ timeout: 2 * 60_000 });
-    importReady = true;
   });
 
   test('the imported integration reports its source and type', async () => {
@@ -394,10 +479,13 @@ test.describe('04 import an integration @smoke', () => {
     // One control under two tooltips, so each label appearing proves the section moved. Scoped
     // to main because the sidebar has its own 'Expand sidebar', and driven from whichever state
     // the section is in, which is not reliably expanded.
-    const collapse = page.getByRole('main').getByRole('button', { name: 'Collapse', exact: true }).first();
-    const expand = page.getByRole('main').getByRole('button', { name: 'Expand', exact: true }).first();
+    const collapse = page.getByRole('button', { name: 'Collapse build details', exact: true });
+    const expand = page.getByRole('button', { name: 'Expand build details', exact: true });
 
-    const [first, second] = (await collapse.isVisible({ timeout: 10_000 }).catch(() => false)) ? [collapse, expand] : [expand, collapse];
+    // The toggle trails the heading on a just-imported integration, so wait for either state
+    // before deciding which way it has to move.
+    await expect(collapse.or(expand), 'the build card offered no collapse control').toBeVisible({ timeout: 60_000 });
+    const [first, second] = (await collapse.isVisible().catch(() => false)) ? [collapse, expand] : [expand, collapse];
 
     await first.click();
     await expect(second, 'the build section did not move on the first toggle').toBeVisible({ timeout: 30_000 });
@@ -417,24 +505,18 @@ test.describe('04 import an integration @smoke', () => {
     await expect(page.getByRole('button', { name: 'View Logs' }).first()).toBeVisible({ timeout: 30_000 });
   });
 
-  test('the imported build completes', async () => {
-    test.setTimeout(BUILD_TIMEOUT_MS + 2 * 60_000);
-    const status = await waitForBuildToSettle(page);
-    test.info().annotations.push({ type: 'build', description: `${IMPORTED}: ${status}` });
-    expect(status, `${IMPORTED} build ended as ${status}`).toMatch(/^Completed/);
-  });
 });
 
-// 05 — the populated overview, which only exists once 03 and 04 have run
+// 06 — the populated overview, which only exists once 04 and 05 have run
 
-test.describe('05 populated project overview @smoke', () => {
+test.describe('06 populated project overview @smoke', () => {
   test.describe.configure({ mode: 'serial' });
 
   test.beforeAll(async () => {
-    test.skip(!projectReady, `${PROJECT} was not created`);
-    test.skip(!sampleReady && !importReady, 'Nothing was created, so the populated branch cannot be exercised');
-    await enterProject();
+    await enterProjectOrSkip();
     await waitForIntegrationsToLoad();
+    const populated = (await isPresent(SAMPLE)) || (await isPresent(IMPORTED));
+    test.skip(!populated, 'The project holds no integrations, so the populated branch cannot be exercised');
   });
 
   test('every integration row carries cells and a delete action', async () => {
@@ -500,9 +582,9 @@ test.describe('05 populated project overview @smoke', () => {
   });
 });
 
-// 06 — the pages each scope offers
+// 07 — the pages each scope offers
 
-test.describe('06 page availability @smoke', () => {
+test.describe('07 page availability @smoke', () => {
   test.describe.configure({ mode: 'serial' });
 
   test('the organization scope offers its pages', async () => {
@@ -517,8 +599,7 @@ test.describe('06 page availability @smoke', () => {
   });
 
   test('the project scope offers its pages', async () => {
-    test.skip(!projectReady, `${PROJECT} was not created`);
-    await enterProject();
+    await enterProjectOrSkip();
     await expandSidebar(page);
 
     await expectNavItems(page, ['Build', 'Deploy', 'Test']);
@@ -532,7 +613,9 @@ test.describe('06 page availability @smoke', () => {
   });
 
   test('the integration scope offers its pages, including Operate', async () => {
-    test.skip(!sampleReady, 'No sample was deployed');
+    await enterProjectOrSkip();
+    await waitForIntegrationsToLoad();
+    test.skip(!(await isPresent(SAMPLE)), `${SAMPLE} is not in the project`);
     await openIntegration(page, SAMPLE);
     await expandSidebar(page);
 
@@ -547,16 +630,64 @@ test.describe('06 page availability @smoke', () => {
     await page.getByRole('button', { name: 'Overview', exact: true }).click();
     await expect(page.getByRole('heading', { name: SAMPLE })).toBeVisible({ timeout: 30_000 });
   });
+
+  test('the footer offers Documentation, Terms of Use, Privacy Policy and Support in order', async () => {
+    await enterOrgHome();
+    for (const [name, href] of FOOTER_LINKS) {
+      await expect(page.getByRole('link', { name, exact: true })).toHaveAttribute('href', href);
+    }
+
+    const links = page.getByRole('link', { name: /^(Documentation|Terms of Use|Privacy Policy|Support)$/ });
+    for (const [index, [name]] of FOOTER_LINKS.entries()) {
+      await expect(links.nth(index)).toHaveText(name);
+    }
+  });
+
+  test('every footer link opens in a new tab', async () => {
+    for (const [name] of FOOTER_LINKS) {
+      await expect(page.getByRole('link', { name, exact: true })).toHaveAttribute('target', '_blank');
+    }
+  });
+
+  test('the footer shows the WSO2 copyright notice', async () => {
+    await expect(page.getByText(`© ${new Date().getFullYear()}, WSO2 LLC.`)).toBeVisible();
+  });
+
+  test('organization settings page exists', async () => {
+    await expectPageRendered(page, `/organizations/${orgHandler}/settings`);
+  });
+
+  for (const section of CLOUD_SECTIONS) {
+    test(`organization settings offers "${section}"`, async () => {
+      await expectPageRendered(page, `/organizations/${orgHandler}/settings`);
+      await expect(page.getByText(section, { exact: true }).first()).toBeVisible({ timeout: 30_000 });
+    });
+  }
+
+  test('organization settings offers no WIP-only section', async () => {
+    await expectPageRendered(page, `/organizations/${orgHandler}/settings`);
+    await expect(page.getByText('Org Details', { exact: true }).first()).toBeVisible({ timeout: 30_000 });
+    for (const section of WIP_ONLY_SECTIONS) {
+      await expect(page.getByText(section, { exact: true })).not.toBeVisible();
+    }
+  });
+
+  test('package registries page exists', async () => {
+    await expectPageRendered(page, `/organizations/${orgHandler}/settings/package-registries`);
+  });
+
+  test('org details page exists', async () => {
+    await expectPageRendered(page, `/organizations/${orgHandler}/settings/org-details`);
+  });
 });
 
-// 07 — cleanup, which is also the deletion coverage
+// 08 — cleanup, which is also the deletion coverage
 
-test.describe('07 clean up @smoke', () => {
+test.describe('08 clean up @smoke', () => {
   test.describe.configure({ mode: 'serial' });
 
   test.beforeAll(async () => {
-    test.skip(!projectReady, `${PROJECT} was not created`);
-    await enterProject();
+    await enterProjectOrSkip();
     await waitForIntegrationsToLoad();
   });
 
@@ -616,6 +747,26 @@ test.describe('07 clean up @smoke', () => {
     }
     await expect(landed, 'the delete neither completed nor reported an error').toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(PROJECT, { exact: true }), `the ${PROJECT} card is still on the org home`).toHaveCount(0, { timeout: REMOVAL_TIMEOUT_MS });
-    projectReady = false;
+  });
+});
+
+// 09 — signing out, the journey's last act
+test.describe('09 sign out @smoke', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  test('signing out asks for confirmation and returns to the sign-in page', async () => {
+    test.setTimeout(2 * 60_000);
+    await enterOrgHome();
+
+    await page.getByRole('button', { name: 'Account' }).click();
+    await page.getByRole('menuitem', { name: 'Sign Out' }).click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog, 'signing out did not ask for confirmation').toBeVisible({ timeout: 30_000 });
+    await dialog.getByRole('button', { name: 'Sign Out' }).click();
+
+    // Cloud has no in-app login page — /login hands off to Thunder's hosted Gate.
+    await expect(page).toHaveURL(/\/gate\/signin/, { timeout: 60_000 });
+    await expect(page.getByRole('button', { name: 'Continue with GitHub' })).toBeVisible({ timeout: 30_000 });
   });
 });

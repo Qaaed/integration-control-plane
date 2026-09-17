@@ -8,7 +8,7 @@ export const TERMINAL_STATUS = /^(Completed|Failed|Cancelled|Timed Out)/;
 export const STARTING_STATUS = /^(Queued|In Progress)$/;
 
 /** A dev build can sit in the queue for a long while before it starts moving. */
-export const BUILD_TIMEOUT_MS = 20 * 60_000;
+export const BUILD_TIMEOUT_MS = 30 * 60_000;
 
 /** The status has no role or accessible name (BuildCard.tsx:194-198), so it is matched by its text. */
 export function buildStatus(page: Page) {

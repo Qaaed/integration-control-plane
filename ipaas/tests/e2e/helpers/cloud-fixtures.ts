@@ -153,11 +153,34 @@ export async function expectPageRendered(page: Page, url: string): Promise<void>
  * the session carries no refresh token, so a spec outliving the token's hour — the build waits —
  * has to seed a new one itself. A no-op elsewhere; a browser-login session refreshes itself.
  */
+/**
+ * A reseeded token has to outlive the longest gap before the next reseed, with room to spare:
+ * the console refreshes 30s before expiry, finds the empty refresh_token that token mode writes,
+ * and then clears the session and redirects to sign-in (tokenManager.ts refreshAccessToken).
+ * So installing a nearly-spent token does not merely lapse — it ends the run.
+ */
+const RESEED_MIN_LIFETIME_MS = 6 * 60_000;
+
 export async function reseedSessionToken(page: Page): Promise<void> {
   if (!process.env.E2E_TOKEN_MODE) return;
 
-  const token = await resolveToken();
-  const claims = decodeTokenClaims(token);
+  let token = await resolveToken();
+  let claims = decodeTokenClaims(token);
+
+  // The provider serves one cached token until it nears expiry, so a reseed mid-run can be handed
+  // seconds of life. Waiting for the rotation costs less than losing the session.
+  for (let attempt = 0; attempt < 5 && claims.exp * 1000 - Date.now() < RESEED_MIN_LIFETIME_MS; attempt++) {
+    const waitMs = Math.min(Math.max(claims.exp * 1000 - Date.now(), 0) + 5_000, 60_000);
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+    token = await resolveToken();
+    claims = decodeTokenClaims(token);
+  }
+
+  const remainingMs = claims.exp * 1000 - Date.now();
+  if (remainingMs < RESEED_MIN_LIFETIME_MS) {
+    throw new Error(`The token provider keeps serving tokens with ${Math.round(remainingMs / 1000)}s of life, under the ${RESEED_MIN_LIFETIME_MS / 60_000} minutes a reseed needs. Its own refresh is likely failing.`);
+  }
+
   await page.evaluate(
     ({ value, expiresAt }) => {
       localStorage.setItem('auth_token', value);

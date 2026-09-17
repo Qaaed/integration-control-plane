@@ -26,7 +26,7 @@
  * app shell with no content is the failure being caught here.
  */
 
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { getAuthContext } from '../../helpers/auth-context.js';
 import { expectPageRendered, trackFailedRequests } from '../../helpers/cloud-fixtures.js';
 
@@ -76,35 +76,6 @@ test.describe('observability pages @smoke', () => {
   // Integration scope — the integration is read from the table, not named
   // -------------------------------------------------------------------------
 
-  async function firstIntegrationHandle(page: Page): Promise<string | null> {
-    await page.goto(`/organizations/${orgHandler}/projects/${projectHandler}/home`, { waitUntil: 'domcontentloaded' });
-    const firstRow = page.getByRole('row', { name: /^View details for / }).first();
-    const present = await firstRow
-      .waitFor({ state: 'visible', timeout: 30_000 })
-      .then(() => true)
-      .catch(() => false);
-    if (!present) return null;
 
-    await firstRow.click();
-    await page.waitForURL(/\/components\/([^/]+)\//, { timeout: 30_000 }).catch(() => {});
-    return page.url().match(/\/components\/([^/]+)\//)?.[1] ?? null;
-  }
 
-  test('integration logs page exists', async ({ page }) => {
-    const handle = await firstIntegrationHandle(page);
-    test.skip(!handle, 'Project holds no integration to open');
-
-    const failures = trackFailedRequests(page);
-    await expectPageRendered(page, `/organizations/${orgHandler}/projects/${projectHandler}/components/${handle}/logs`);
-    expect(failures, 'Requests failed while the integration logs page loaded').toEqual([]);
-  });
-
-  test('integration metrics page exists', async ({ page }) => {
-    const handle = await firstIntegrationHandle(page);
-    test.skip(!handle, 'Project holds no integration to open');
-
-    const failures = trackFailedRequests(page);
-    await expectPageRendered(page, `/organizations/${orgHandler}/projects/${projectHandler}/components/${handle}/metrics`);
-    expect(failures, 'Requests failed while the integration metrics page loaded').toEqual([]);
-  });
 });

@@ -108,7 +108,9 @@ export default defineConfig({
     },
     {
       name: 'cloud',
-      testIgnore: /specs[\\/](wip|cloud-anon)[\\/]/,
+      // specs/shared is excluded: those page checks assume the org's default project, which the
+      // journey's own fixture project has replaced as the thing under test on cloud.
+      testIgnore: /specs[\\/](wip|cloud-anon|shared)[\\/]/,
       retries: CLOUD_RETRIES,
       // The journey spec depends on declaration order within its file.
       fullyParallel: false,
