@@ -213,7 +213,7 @@ export default function BuildCard({ componentId, versionId, latestCommit }: Buil
             {logsVisible ? 'Hide Logs' : 'View Logs'}
           </Button>
           <Tooltip title={expanded ? 'Collapse' : 'Expand'}>
-            <IconButton size="small" onClick={toggleExpanded}>
+            <IconButton size="small" aria-label={expanded ? 'Collapse build details' : 'Expand build details'} aria-expanded={expanded} onClick={toggleExpanded}>
               {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </IconButton>
           </Tooltip>

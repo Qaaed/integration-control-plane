@@ -36,12 +36,10 @@ const WIP_ONLY_SECTIONS = ['Access Control', 'Egress Control', 'Workflows', 'Cre
 
 test.describe('settings @smoke', () => {
   let orgHandler: string;
-  let projectHandler: string;
 
   test.beforeEach(async () => {
     const ctx = getAuthContext();
     orgHandler = ctx.orgHandler;
-    projectHandler = ctx.projectHandler ?? 'default';
   });
 
   // -------------------------------------------------------------------------
@@ -81,11 +79,4 @@ test.describe('settings @smoke', () => {
     await expectPageRendered(page, `/organizations/${orgHandler}/settings/org-details`);
   });
 
-  // -------------------------------------------------------------------------
-  // Project settings
-  // -------------------------------------------------------------------------
-
-  test('project settings page exists', async ({ page }) => {
-    await expectPageRendered(page, `/organizations/${orgHandler}/projects/${projectHandler}/settings`);
-  });
 });

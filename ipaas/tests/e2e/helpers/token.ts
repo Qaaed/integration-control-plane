@@ -31,11 +31,15 @@ export interface TokenClaims {
 }
 
 /**
- * Enough for a read-only run. A floor covering the 20-minute build waits would reject tokens
- * that serve the rest of the suite perfectly well, so those specs call reseedSessionToken
- * between polls instead — the provider hands out no refresh token for the console to use.
+ * Covers the longest stretch that runs without a reseed — a build-wait chunk is 4 minutes and
+ * the import form allows 3 — with margin, rather than the whole 16-minute journey.
+ *
+ * A journey-length floor was tried and rejected: the provider serves a cached token until it
+ * nears expiry, so requiring 20 minutes refused to start a run with 14 minutes left, which is
+ * plenty when the session is topped up as it goes. Long waits and every group entry call
+ * reseedSessionToken, because the provider hands out no refresh token for the console itself.
  */
-export const MIN_TOKEN_LIFETIME_MS = 5 * 60_000;
+export const MIN_TOKEN_LIFETIME_MS = 10 * 60_000;
 
 interface StorageEntry {
   name: string;
@@ -199,7 +203,12 @@ async function fetchFromProvider(url: string, authToken: string | undefined): Pr
     }
   }
 
-  throw new Error(`Token provider at ${url} did not return a token after ${TOKEN_FETCH_ATTEMPTS} attempts (last: ${last}). A 503 means it holds no live token — its browser login or refresh has failed.`);
+  // The hint is chosen from what actually failed. An unconditional "a 503 means..." note sent a
+  // real debugging session after the provider when the tunnel was simply down.
+  const hint = last.startsWith('transport error')
+    ? 'Nothing accepted the connection: for a local run, check the port-forward to the internal gateway is still up.'
+    : 'A 503 means it holds no live token — its browser login or refresh has failed.';
+  throw new Error(`Token provider at ${url} did not return a token after ${TOKEN_FETCH_ATTEMPTS} attempts (last: ${last}). ${hint}`);
 }
 
 export async function resolveToken(): Promise<string> {
