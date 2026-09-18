@@ -229,9 +229,15 @@ export default function AgentChat({ componentId, versionId, releaseId, environme
           {chatError}
         </Alert>
       )}
-      {authError && <Alert severity="warning">{(IS_CLOUD && access.keyError) || 'Could not authenticate with the agent. Check your permissions and try again.'}</Alert>}
+      {authError && (
+        <Alert severity="info">
+          {IS_CLOUD
+            ? 'This agent can’t be chat-tested right now — test-key access to the gateway is unavailable.'
+            : 'Could not authenticate with the agent. Check your permissions and try again.'}
+        </Alert>
+      )}
       {noEndpoint && <Alert severity="info">No chat endpoint found for this agent.</Alert>}
-      {notExposed && <Alert severity="warning">This agent&apos;s endpoint isn&apos;t exposed on the API gateway yet, so it can&apos;t be chat-tested. Redeploy the agent, or check that its endpoint is exposed as an API.</Alert>}
+      {notExposed && <Alert severity="info">This agent can&apos;t be chat-tested right now &mdash; its endpoint hasn&apos;t registered on the API gateway. Redeploy the agent, or check that its endpoint is exposed as an API.</Alert>}
       {needsManualKey && (
         <Alert
           severity="info"

@@ -63,7 +63,7 @@ export default function EnvCardBody({ component, env, versionId, releaseId, hasD
     <>
       <Divider sx={{ my: 2 }} />
       {showEndpoints && <EndpointUrlsPanel endpoints={endpoints} selectedIdx={selectedEpIdx} onSelect={setSelectedEpIdx} componentId={component.id} deploymentTrackId={versionId} externalUrlOverride={apiSecurity?.publicUrl || undefined} />}
-      <AgentChat componentId={component.id} versionId={versionId} releaseId={releaseId} environmentName={env.name} envCritical={!!env.critical} />
+      <AgentChat componentId={component.id} versionId={versionId} releaseId={releaseId} environmentName={env.id} envCritical={!!env.critical} />
     </>
   );
 }
