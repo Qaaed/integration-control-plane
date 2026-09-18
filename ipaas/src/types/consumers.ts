@@ -109,6 +109,9 @@ export interface EndpointPolicyConfig {
   rateLimit?: EndpointRateLimitPolicy;
   /** Routes the exposed API has — what a per-operation limit attaches to. Read-only: ignored on PUT. */
   operations?: EndpointPolicyOperation[];
+  /** Entries the platform injected into the CORS lists. Read-only: ignored on PUT. */
+  platformOrigins?: string[];
+  platformHeaders?: string[];
 }
 
 export interface EndpointPolicyOperation {

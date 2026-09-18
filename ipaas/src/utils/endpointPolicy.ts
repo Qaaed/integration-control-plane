@@ -29,8 +29,13 @@ const asTimeUnit = (unit: string | undefined): TimeUnit => (TIME_UNITS.some((u) 
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
 
+/** Case-insensitive, because header names are. */
+export const isPlatformEntry = (value: string, platform: string[] | undefined): boolean => (platform ?? []).some((p) => p.toLowerCase() === value.toLowerCase());
+
+const withoutPlatform = (values: string[], platform: string[] | undefined): string[] => (platform?.length ? values.filter((v) => !isPlatformEntry(v, platform)) : values);
+
 /** Seeds the header and method defaults, so a first enable allows something. */
-export function corsFromPolicy(cors: EndpointCorsPolicy | undefined): CorsConfig {
+export function corsFromPolicy(cors: EndpointCorsPolicy | undefined, platformOrigins?: string[], platformHeaders?: string[]): CorsConfig {
   const origins = cors?.allowOrigins ?? [];
   return {
     enabled: cors?.enabled ?? false,
@@ -39,6 +44,8 @@ export function corsFromPolicy(cors: EndpointCorsPolicy | undefined): CorsConfig
     headers: cors?.allowHeaders?.length ? cors.allowHeaders : DEFAULT_CORS_HEADERS,
     methods: cors?.allowMethods?.length ? cors.allowMethods : DEFAULT_CORS_METHODS,
     allowCredentials: cors?.allowCredentials ?? false,
+    platformOrigins,
+    platformHeaders,
   };
 }
 
@@ -46,11 +53,12 @@ export function corsFromPolicy(cors: EndpointCorsPolicy | undefined): CorsConfig
 export function corsToPolicy(value: CorsConfig): EndpointCorsPolicy {
   if (!value.enabled) return { enabled: false, allowCredentials: false };
   const wildcard = allowsAllOrigins(value);
+  // Platform entries are not sent back: the BFF re-injects them, and echoing them would make them indistinguishable from the user's own.
   return {
     enabled: true,
-    allowOrigins: wildcard ? [ALLOW_ALL] : value.origins,
+    allowOrigins: wildcard ? [ALLOW_ALL] : withoutPlatform(value.origins, value.platformOrigins),
     allowMethods: value.methods,
-    allowHeaders: value.headers,
+    allowHeaders: withoutPlatform(value.headers, value.platformHeaders),
     allowCredentials: wildcard ? false : value.allowCredentials,
   };
 }
@@ -106,7 +114,7 @@ export function rateLimitToPolicy(value: RateLimitConfig): EndpointRateLimitPoli
 export const toRateLimitOperations = (operations: EndpointPolicyOperation[] | undefined): RateLimitOperation[] => (operations ?? []).map((op) => ({ key: op.key, verb: op.method, target: op.path }));
 
 export const policyToConfig = (cfg: EndpointPolicyConfig | undefined): { cors: CorsConfig; rateLimit: RateLimitConfig } => ({
-  cors: corsFromPolicy(cfg?.cors),
+  cors: corsFromPolicy(cfg?.cors, cfg?.platformOrigins, cfg?.platformHeaders),
   rateLimit: rateLimitFromPolicy(cfg?.rateLimit),
 });
 

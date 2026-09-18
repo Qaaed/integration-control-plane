@@ -43,6 +43,31 @@ describe('corsFromPolicy', () => {
   });
 });
 
+describe('platform CORS entries', () => {
+  it('carries what the BFF injected, so the drawer can show it without offering to remove it', () => {
+    const value = corsFromPolicy({ enabled: true, allowOrigins: ['https://app.example', 'https://console.example'], allowHeaders: ['X-API-Key'], allowCredentials: false }, ['https://console.example'], ['X-API-Key']);
+    expect(value.platformOrigins).toEqual(['https://console.example']);
+    expect(value.platformHeaders).toEqual(['X-API-Key']);
+    expect(value.origins).toContain('https://app.example');
+  });
+
+  it('does not send them back — the BFF re-injects them, and echoing makes them look like the user\'s own', () => {
+    const policy = corsToPolicy({
+      enabled: true,
+      allowAllOrigins: false,
+      origins: ['https://app.example', 'https://console.example'],
+      headers: ['authorization', 'X-API-Key'],
+      methods: ['GET'],
+      allowCredentials: false,
+      platformOrigins: ['https://console.example'],
+      platformHeaders: ['x-api-key'],
+    });
+    expect(policy.allowOrigins).toEqual(['https://app.example']);
+    // Header names are case-insensitive, so the match must be too.
+    expect(policy.allowHeaders).toEqual(['authorization']);
+  });
+});
+
 describe('corsToPolicy', () => {
   const enabled: CorsConfig = { enabled: true, allowAllOrigins: false, origins: ['https://a.example'], headers: ['authorization'], methods: ['GET'], allowCredentials: true };
 

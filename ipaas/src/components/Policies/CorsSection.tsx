@@ -16,10 +16,12 @@
  * under the License.
  */
 
-import { Autocomplete, Checkbox, Chip, Collapse, FormControlLabel, Stack, Switch, TextField, Typography } from '@wso2/oxygen-ui';
+import { Alert, Autocomplete, Checkbox, Chip, Collapse, FormControlLabel, Stack, Switch, TextField, Typography } from '@wso2/oxygen-ui';
+import { Lock } from '@wso2/oxygen-ui-icons-react';
 import type { ReactNode } from 'react';
 import { CORS_METHOD_OPTIONS, DEFAULT_CORS_HEADERS } from '../../constants/policy';
 import type { CorsConfig } from '../../types/policy';
+import { isPlatformEntry } from '../../utils/endpointPolicy';
 import { allowsAllOrigins } from '../../utils/policy';
 
 interface CorsSectionProps {
@@ -28,7 +30,9 @@ interface CorsSectionProps {
   disabled?: boolean;
 }
 
-function TagField({ label, placeholder, options, values, onChange, disabled }: { label: string; placeholder: string; options: string[]; values: string[]; onChange: (v: string[]) => void; disabled?: boolean }) {
+function TagField({ label, placeholder, options, values, onChange, disabled, locked }: { label: string; placeholder: string; options: string[]; values: string[]; onChange: (v: string[]) => void; disabled?: boolean; locked?: string[] }) {
+  // Autocomplete also drops tags on backspace, so a locked entry has to be re-added, not just undeletable.
+  const keepLocked = (next: string[]) => onChange([...next, ...(locked ?? []).filter((l) => !isPlatformEntry(l, next))]);
   return (
     <Autocomplete
       multiple
@@ -37,11 +41,23 @@ function TagField({ label, placeholder, options, values, onChange, disabled }: {
       options={options}
       value={values}
       disabled={disabled}
-      onChange={(_, v) => onChange(v as string[])}
+      onChange={(_, v) => keepLocked(v as string[])}
       renderTags={(tags: string[], getTagProps) =>
         tags.map((option, index) => {
-          const { key, ...tagProps } = getTagProps({ index });
-          return <Chip key={key} label={option} size="small" variant="outlined" {...tagProps} />;
+          const { key, onDelete, ...tagProps } = getTagProps({ index });
+          const isLocked = isPlatformEntry(option, locked);
+          return (
+            <Chip
+              key={key}
+              label={option}
+              size="small"
+              variant="outlined"
+              icon={isLocked ? <Lock size={11} /> : undefined}
+              title={isLocked ? 'Added by the platform so the Test Console can call this endpoint' : undefined}
+              onDelete={isLocked ? undefined : onDelete}
+              {...tagProps}
+            />
+          );
         })
       }
       renderInput={(params) => <TextField {...params} size="small" label={label} placeholder={values.length === 0 ? placeholder : ''} />}
@@ -59,6 +75,12 @@ export default function CorsSection({ value, onChange, disabled }: CorsSectionPr
     <Stack gap={1.5}>
       <FormControlLabel control={<Switch size="small" checked={value.enabled} onChange={(e) => onChange({ ...value, enabled: e.target.checked })} disabled={disabled} />} label={<Typography variant="body2">Enable CORS</Typography>} />
 
+      {!value.enabled && (
+        <Alert severity="warning" sx={{ mt: -0.5 }}>
+          With CORS off the gateway returns no Access-Control-Allow-Origin, so browsers cannot use responses from this endpoint — the Test Console included. Server-side callers (curl, backends) are unaffected.
+        </Alert>
+      )}
+
       <Collapse in={value.enabled} unmountOnExit>
         <Stack gap={2} sx={{ pl: 0.5 }}>
           {/* Ticking allow-all clears credentials in the model, not just in the view. */}
@@ -67,9 +89,11 @@ export default function CorsSection({ value, onChange, disabled }: CorsSectionPr
             label={<Typography variant="body2">Allow all origins (*)</Typography>}
           />
 
-          {!value.allowAllOrigins && <TagField label="Access control allow origins" placeholder="e.g. https://app.example.com" options={[]} values={value.origins} onChange={(v) => onChange({ ...value, origins: v })} disabled={disabled} />}
+          {!value.allowAllOrigins && (
+            <TagField label="Access control allow origins" placeholder="e.g. https://app.example.com" options={[]} values={value.origins} onChange={(v) => onChange({ ...value, origins: v })} disabled={disabled} locked={value.platformOrigins} />
+          )}
 
-          <TagField label="Access control allow headers" placeholder="Add a header" options={DEFAULT_CORS_HEADERS} values={value.headers} onChange={(v) => onChange({ ...value, headers: v })} disabled={disabled} />
+          <TagField label="Access control allow headers" placeholder="Add a header" options={DEFAULT_CORS_HEADERS} values={value.headers} onChange={(v) => onChange({ ...value, headers: v })} disabled={disabled} locked={value.platformHeaders} />
 
           <TagField label="Access control allow methods" placeholder="Add a method" options={CORS_METHOD_OPTIONS} values={value.methods} onChange={(v) => onChange({ ...value, methods: v })} disabled={disabled} />
 
