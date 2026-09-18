@@ -232,12 +232,12 @@ export default function AgentChat({ componentId, versionId, releaseId, environme
       {authError && (
         <Alert severity="info">
           {IS_CLOUD
-            ? 'This agent can’t be chat-tested right now — test-key access to the gateway is unavailable. This is a known platform issue; no action is needed on your end.'
+            ? 'This agent can’t be chat-tested right now — test-key access to the gateway is unavailable.'
             : 'Could not authenticate with the agent. Check your permissions and try again.'}
         </Alert>
       )}
       {noEndpoint && <Alert severity="info">No chat endpoint found for this agent.</Alert>}
-      {notExposed && <Alert severity="info">This agent can&apos;t be chat-tested right now &mdash; its endpoint hasn&apos;t registered on the API gateway. This is a known platform issue, not something a redeploy will fix; the team has been notified.</Alert>}
+      {notExposed && <Alert severity="info">This agent can&apos;t be chat-tested right now &mdash; its endpoint hasn&apos;t registered on the API gateway. Redeploy the agent, or check that its endpoint is exposed as an API.</Alert>}
       {needsManualKey && (
         <Alert
           severity="info"
