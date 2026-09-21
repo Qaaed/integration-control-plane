@@ -53,7 +53,7 @@ export interface CorsConfig {
   headers: string[];
   methods: string[];
   allowCredentials: boolean;
-  /** Injected by the platform so the console can call the gateway; shown but not editable. */
+  /** Seeded by the platform for the Test Console. Marked in the UI, but the user may remove them. */
   platformOrigins?: string[];
   platformHeaders?: string[];
 }

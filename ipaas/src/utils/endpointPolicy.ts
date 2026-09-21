@@ -32,16 +32,17 @@ const asTimeUnit = (unit: string | undefined): TimeUnit => (TIME_UNITS.some((u) 
 /** Case-insensitive, because header names are. */
 export const isPlatformEntry = (value: string, platform: string[] | undefined): boolean => (platform ?? []).some((p) => p.toLowerCase() === value.toLowerCase());
 
-const withoutPlatform = (values: string[], platform: string[] | undefined): string[] => (platform?.length ? values.filter((v) => !isPlatformEntry(v, platform)) : values);
+const withPlatform = (defaults: readonly string[], platform: string[] | undefined): string[] => [...defaults, ...(platform ?? []).filter((p) => !isPlatformEntry(p, [...defaults]))];
 
-/** Seeds the header and method defaults, so a first enable allows something. */
+/** Seeds an empty list and takes a populated one as it stands, so a removed entry stays removed. */
 export function corsFromPolicy(cors: EndpointCorsPolicy | undefined, platformOrigins?: string[], platformHeaders?: string[]): CorsConfig {
   const origins = cors?.allowOrigins ?? [];
+  const configured = origins.filter((o) => o !== ALLOW_ALL);
   return {
     enabled: cors?.enabled ?? false,
     allowAllOrigins: origins.includes(ALLOW_ALL),
-    origins: origins.filter((o) => o !== ALLOW_ALL),
-    headers: cors?.allowHeaders?.length ? cors.allowHeaders : DEFAULT_CORS_HEADERS,
+    origins: configured.length ? configured : (platformOrigins ?? []),
+    headers: cors?.allowHeaders?.length ? cors.allowHeaders : withPlatform(DEFAULT_CORS_HEADERS, platformHeaders),
     methods: cors?.allowMethods?.length ? cors.allowMethods : DEFAULT_CORS_METHODS,
     allowCredentials: cors?.allowCredentials ?? false,
     platformOrigins,
@@ -53,12 +54,11 @@ export function corsFromPolicy(cors: EndpointCorsPolicy | undefined, platformOri
 export function corsToPolicy(value: CorsConfig): EndpointCorsPolicy {
   if (!value.enabled) return { enabled: false, allowCredentials: false };
   const wildcard = allowsAllOrigins(value);
-  // Platform entries are not sent back: the BFF re-injects them, and echoing them would make them indistinguishable from the user's own.
   return {
     enabled: true,
-    allowOrigins: wildcard ? [ALLOW_ALL] : withoutPlatform(value.origins, value.platformOrigins),
+    allowOrigins: wildcard ? [ALLOW_ALL] : value.origins,
     allowMethods: value.methods,
-    allowHeaders: withoutPlatform(value.headers, value.platformHeaders),
+    allowHeaders: value.headers,
     allowCredentials: wildcard ? false : value.allowCredentials,
   };
 }
