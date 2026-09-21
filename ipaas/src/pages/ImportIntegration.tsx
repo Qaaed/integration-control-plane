@@ -296,14 +296,14 @@ export default function ImportIntegration(scope: ProjectScope): JSX.Element {
   const orgOptions = userRepos?.map((o) => o.orgName) ?? [];
   const reposForOrg = userRepos?.find((o) => o.orgName === selectedOrg)?.repositories.map((r) => r.name) ?? [];
 
-  // Reconcile the selected org/repo after a refresh: if the chosen org or repo no
-  // longer exists in the refreshed data, clear it and reset dependent state.
+  // Reconcile after a refresh, and pre-select the first org so the repo picker is usable right after authorizing.
   useEffect(() => {
     if (isPublicRepo || !userRepos) return;
-    if (selectedOrg && !orgOptions.includes(selectedOrg)) {
-      setSelectedOrg('');
+    if (!selectedOrg || !orgOptions.includes(selectedOrg)) {
+      setSelectedOrg(orgOptions[0] ?? '');
       setSelectedRepo('');
-      resetDownstreamState({ includeDisplayName: true, includeTechnology: true });
+      // Only a replaced org clears downstream state; the first selection has nothing to clear.
+      if (selectedOrg) resetDownstreamState({ includeDisplayName: true, includeTechnology: true });
       return;
     }
     if (selectedRepo && !reposForOrg.includes(selectedRepo)) {
@@ -455,7 +455,7 @@ export default function ImportIntegration(scope: ProjectScope): JSX.Element {
           <Button
             variant="outlined"
             startIcon={
-              <Box sx={{ color: 'common.black', display: 'flex' }}>
+              <Box sx={{ color: 'text.primary', display: 'flex' }}>
                 <GitHub size={16} />
               </Box>
             }
@@ -493,7 +493,7 @@ export default function ImportIntegration(scope: ProjectScope): JSX.Element {
         <Button
           variant="outlined"
           startIcon={
-            <Box sx={{ color: 'common.black', display: 'flex' }}>
+            <Box sx={{ color: 'text.primary', display: 'flex' }}>
               <GitHub size={16} />
             </Box>
           }
@@ -569,7 +569,7 @@ export default function ImportIntegration(scope: ProjectScope): JSX.Element {
                   input: {
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Box sx={{ color: 'common.black', display: 'flex' }}>{isCredentialMode ? gitProviderIcon(credProvider!, 16) : <GitHub size={16} />}</Box>
+                        <Box sx={{ color: 'text.primary', display: 'flex' }}>{isCredentialMode ? gitProviderIcon(credProvider!, 16) : <GitHub size={16} />}</Box>
                       </InputAdornment>
                     ),
                   },
@@ -613,7 +613,7 @@ export default function ImportIntegration(scope: ProjectScope): JSX.Element {
                   input: {
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Box sx={{ color: 'common.black', display: 'flex' }}>{isCredentialMode ? gitProviderIcon(credProvider!, 16) : <GitHub size={16} />}</Box>
+                        <Box sx={{ color: 'text.primary', display: 'flex' }}>{isCredentialMode ? gitProviderIcon(credProvider!, 16) : <GitHub size={16} />}</Box>
                       </InputAdornment>
                     ),
                   },

@@ -84,6 +84,8 @@ import Authorized from '../components/Authorized';
 import { useFeaturePreview } from '../contexts/FeaturePreviewContext';
 import { useLoadProjectPermissions } from '../hooks/usePermissionLoader';
 import { UUID_RE } from '../utils/string';
+import { isExternalRepoIntegration } from '../utils/projectRepo';
+import { DESCRIPTION_MAX_LENGTH, DESCRIPTION_MAX_NEWLINES, clampDescription, isAtNewlineLimit } from '../utils/description';
 
 const Markdown = lazy(() => import('../components/Markdown'));
 
@@ -237,8 +239,7 @@ function getInitProgress(c: Component, isWorkspace: boolean): { progress: number
 function ComponentNameCell({ component: c, isWorkspace, external = false, projectGitOrg, projectGitRepo }: { component: Component; isWorkspace: boolean; external?: boolean; projectGitOrg?: string; projectGitRepo?: string }) {
   const init = getInitProgress(c, isWorkspace);
   const nameLabel = init && c.displayType ? `${c.displayName}: ${c.displayType}` : c.displayName;
-  const isExternalRepo =
-    !!projectGitOrg && !!projectGitRepo && !!c.repository?.organizationApp && !!c.repository?.nameApp && (c.repository.organizationApp.toLowerCase() !== projectGitOrg.toLowerCase() || c.repository.nameApp.toLowerCase() !== projectGitRepo.toLowerCase());
+  const isExternalRepo = isExternalRepoIntegration(c, projectGitOrg, projectGitRepo);
   return (
     <Stack direction="row" alignItems="center" gap={1.5}>
       {init ? (
@@ -708,19 +709,12 @@ export default function Project(scope: ProjectScope): JSX.Element {
 
   const isEmpty = justProvisionedDefaultProject || (isComponentsSuccess ? components.length === 0 : cachedIsEmpty);
   const isWorkspace = project.type === 'MONO_REPO';
+  // The editor clones the project repo, so only an integration that builds from it can open.
   const openInCloudComponent =
-    components.find((c) => {
-      if (!isSupportedIntegration(c.displayType, c.componentSubType, c.buildpackType)) return false;
-      if (!project.gitOrganization || !project.repository) return true;
-      if (!c.repository?.organizationApp || !c.repository?.nameApp) return true;
-      return c.repository.organizationApp.toLowerCase() === project.gitOrganization.toLowerCase() && c.repository.nameApp.toLowerCase() === project.repository.toLowerCase();
-    }) ?? null;
+    components.find((c) => isSupportedIntegration(c.displayType, c.componentSubType, c.buildpackType) && !isExternalRepoIntegration(c, project.gitOrganization, project.repository)) ?? null;
   const projectRepoUrl = buildProjectRepoUrl(project.gitProvider, project.gitOrganization, project.repository, project.branch);
 
-  const externalComponents =
-    project.gitOrganization && project.repository
-      ? components.filter((c) => !!c.repository?.organizationApp && !!c.repository?.nameApp && (c.repository.organizationApp.toLowerCase() !== project.gitOrganization!.toLowerCase() || c.repository.nameApp.toLowerCase() !== project.repository!.toLowerCase()))
-      : [];
+  const externalComponents = components.filter((c) => isExternalRepoIntegration(c, project.gitOrganization, project.repository));
 
   const doOpenInCloud = () => {
     if (!codeServerSample || !openInCloudComponent) return;
@@ -829,7 +823,12 @@ export default function Project(scope: ProjectScope): JSX.Element {
                         wordBreak: 'break-word',
                         color: descValue ? 'text.secondary' : 'primary.main',
                         minHeight: '1.4em',
-                      }}>
+                        display: '-webkit-box',
+                        WebkitLineClamp: DESCRIPTION_MAX_NEWLINES + 1,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}
+                      title={!descEditing && descValue ? descValue : undefined}>
                       {descValue || '+ Add Description'}
                       {descValue && (
                         <Box component="span" sx={{ display: 'inline-flex', verticalAlign: 'middle', ml: 0.5 }}>
@@ -854,14 +853,17 @@ export default function Project(scope: ProjectScope): JSX.Element {
                         multiline
                         autoFocus
                         value={descValue}
-                        onChange={(e) => setDescValue(e.target.value)}
+                        onChange={(e) => setDescValue(clampDescription(e.target.value))}
                         onBlur={commitDescEdit}
                         onKeyDown={(e) => {
                           if (e.key === 'Escape') {
                             e.preventDefault();
                             cancelDescEdit();
+                            return;
                           }
+                          if (e.key === 'Enter' && isAtNewlineLimit(descValue)) e.preventDefault();
                         }}
+                        inputProps={{ maxLength: DESCRIPTION_MAX_LENGTH }}
                         sx={(theme) => ({
                           position: 'absolute',
                           inset: '-4px',
@@ -869,7 +871,9 @@ export default function Project(scope: ProjectScope): JSX.Element {
                           border: `2px solid ${theme.palette.primary.main}`,
                           borderRadius: `${theme.shape.borderRadius}px`,
                           alignItems: 'flex-start',
-                          '& textarea': { ...theme.typography.body2, padding: 0, resize: 'none', border: 'none', outline: 'none', background: 'transparent' },
+                          // The ghost text below is line-clamped, so the box cannot grow with the input.
+                          overflow: 'hidden',
+                          '& textarea': { ...theme.typography.body2, padding: 0, resize: 'none', border: 'none', outline: 'none', background: 'transparent', overflowY: 'auto !important' },
                         })}
                         disabled={updateProject.isPending}
                         autoComplete="off"
