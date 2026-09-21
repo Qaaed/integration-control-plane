@@ -17,12 +17,26 @@
  */
 
 import { StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import type { JsonSchemaType, JsonValue, McpTool, McpToolContent, McpToolParameter, McpToolResult } from '../types/mcp';
+import type { JsonSchemaType, JsonValue, McpErrorKind, McpTool, McpToolContent, McpToolParameter, McpToolResult } from '../types/mcp';
 
 /** Whether an MCP/transport error is a 401/403 — a permissions issue, not a transient failure. */
 export function isMcpForbiddenError(error: unknown): boolean {
   if (error instanceof StreamableHTTPError) return error.code === 401 || error.code === 403;
   return /\b(401|403)\b|forbidden|unauthor/i.test(error instanceof Error ? error.message : String(error));
+}
+
+/** A request the browser refused to hand over — a rejection without CORS headers reads as this, not as its status. */
+export function isMcpBlockedError(error: unknown): boolean {
+  if (error instanceof StreamableHTTPError) return false;
+  const raw = error instanceof Error ? error.message : String(error);
+  return /failed to fetch|load failed|networkerror|network error/i.test(raw);
+}
+
+/** What went wrong, at the granularity the UI can act on. */
+export function classifyMcpError(error: unknown): McpErrorKind {
+  if (isMcpForbiddenError(error)) return 'auth';
+  if (isMcpBlockedError(error)) return 'blocked';
+  return 'other';
 }
 
 /** Flatten an MCP tool's input schema into a list of parameters for display. */
@@ -131,6 +145,7 @@ export function formatMcpError(error: unknown): string {
     }
   }
   if (/\b(401|403)\b|unauthor|forbidden/i.test(raw)) return 'Not authorized. Check the token and its permissions.';
+  if (isMcpBlockedError(error)) return 'The browser blocked the response, so its status is unknown.';
   const cleaned = raw
     .replace(/^Streamable HTTP error:\s*/i, '')
     .replace(/Error POSTing to endpoint:\s*/i, '')

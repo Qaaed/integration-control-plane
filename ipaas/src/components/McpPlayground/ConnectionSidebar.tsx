@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { Alert, Box, Button, CircularProgress, IconButton, InputAdornment, MenuItem, Stack, TextField, Tooltip, Typography } from '@wso2/oxygen-ui';
+import { Box, Button, CircularProgress, IconButton, InputAdornment, MenuItem, Stack, TextField, Tooltip, Typography } from '@wso2/oxygen-ui';
 import { Copy, Eye, EyeOff, Plug, RefreshCw } from '@wso2/oxygen-ui-icons-react';
 import { useState, type JSX } from 'react';
 import type { McpConnectionStatus, McpSwitcher } from '../../types/mcp';
@@ -25,8 +25,6 @@ interface ConnectionSidebarProps {
   url: string;
   token: string;
   status: McpConnectionStatus;
-  error: string | null;
-  isForbidden: boolean;
   isTokenFetching?: boolean;
   endpointSwitcher?: McpSwitcher;
   visibilitySwitcher?: McpSwitcher;
@@ -46,7 +44,7 @@ const STATUS_META: Record<McpConnectionStatus, { label: string; color: string }>
 const readOnlyInputSx = { bgcolor: 'action.hover', fontFamily: 'monospace', fontSize: 12.5 } as const;
 
 /** The playground's left panel: endpoint/visibility selectors, the derived URL + test key, and connect controls. */
-export default function ConnectionSidebar({ url, token, status, error, isForbidden, isTokenFetching, endpointSwitcher, visibilitySwitcher, onConnect, onDisconnect, onReconnect, onGetTestKey }: ConnectionSidebarProps): JSX.Element {
+export default function ConnectionSidebar({ url, token, status, isTokenFetching, endpointSwitcher, visibilitySwitcher, onConnect, onDisconnect, onReconnect, onGetTestKey }: ConnectionSidebarProps): JSX.Element {
   const [showToken, setShowToken] = useState(false);
   const connected = status === 'connected';
   const connecting = status === 'connecting';
@@ -155,8 +153,6 @@ export default function ConnectionSidebar({ url, token, status, error, isForbidd
           {meta.label}
         </Typography>
       </Stack>
-
-      {error && <Alert severity={isForbidden ? 'warning' : 'error'}>{isForbidden ? 'Not authorized to connect. Check the token and its permissions.' : error}</Alert>}
     </Stack>
   );
 }

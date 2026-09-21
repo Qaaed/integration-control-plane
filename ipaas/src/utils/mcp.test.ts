@@ -18,7 +18,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { coerceFieldValue, formatFieldLabel, formatMcpError, formatToolResult, generateDefaultValue, getMcpToolParameters, isMcpForbiddenError, isSimpleObjectSchema } from './mcp';
+import { classifyMcpError, coerceFieldValue, formatFieldLabel, formatMcpError, formatToolResult, generateDefaultValue, getMcpToolParameters, isMcpBlockedError, isMcpForbiddenError, isSimpleObjectSchema } from './mcp';
 import type { McpTool } from '../types/mcp';
 
 describe('getMcpToolParameters', () => {
@@ -111,6 +111,9 @@ describe('formatMcpError', () => {
   it('recognises auth failures', () => {
     expect(formatMcpError(new Error('HTTP 403: forbidden'))).toBe('Not authorized. Check the token and its permissions.');
   });
+  it('reports a withheld response rather than the browser wording', () => {
+    expect(formatMcpError(new TypeError('Failed to fetch'))).toBe('The browser blocked the response, so its status is unknown.');
+  });
   it('strips transport prefixes and falls back to a generic message', () => {
     expect(formatMcpError('Streamable HTTP error: connection refused')).toBe('connection refused');
     expect(formatMcpError('')).toBe('Something went wrong while contacting the MCP server.');
@@ -127,5 +130,24 @@ describe('isMcpForbiddenError', () => {
     expect(isMcpForbiddenError(new Error('HTTP 403 forbidden'))).toBe(true);
     expect(isMcpForbiddenError('unauthorized')).toBe(true);
     expect(isMcpForbiddenError(new Error('connection refused'))).toBe(false);
+  });
+});
+
+describe('isMcpBlockedError', () => {
+  it('matches the browser wording for a request it would not hand over', () => {
+    expect(isMcpBlockedError(new TypeError('Failed to fetch'))).toBe(true);
+    expect(isMcpBlockedError(new Error('Load failed'))).toBe(true);
+  });
+  it('is false for a readable transport status', () => {
+    expect(isMcpBlockedError(new StreamableHTTPError(401, 'nope'))).toBe(false);
+    expect(isMcpBlockedError(new Error('connection refused'))).toBe(false);
+  });
+});
+
+describe('classifyMcpError', () => {
+  it('separates auth, blocked and everything else', () => {
+    expect(classifyMcpError(new StreamableHTTPError(401, 'nope'))).toBe('auth');
+    expect(classifyMcpError(new TypeError('Failed to fetch'))).toBe('blocked');
+    expect(classifyMcpError(new Error('connection refused'))).toBe('other');
   });
 });

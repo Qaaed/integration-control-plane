@@ -20,6 +20,7 @@ import { Box, Stack, Tab, Tabs, Typography } from '@wso2/oxygen-ui';
 import { Plug } from '@wso2/oxygen-ui-icons-react';
 import { useCallback, useEffect, useState, type JSX, type MouseEvent } from 'react';
 import { useMcpConnection } from '../../hooks/useMcpConnection';
+import ConnectionAlert from './ConnectionAlert';
 import ConnectionSidebar from './ConnectionSidebar';
 import HistoryPanel from './HistoryPanel';
 import PingTab from './PingTab';
@@ -102,45 +103,47 @@ export default function McpPlayground({ url, token, headerName = 'test-key', isT
   };
 
   return (
-    <Stack direction="row" gap={2} sx={{ height: '100%', minHeight: 0 }}>
-      <ConnectionSidebar
-        url={url}
-        token={token ?? ''}
-        status={conn.status}
-        error={conn.error}
-        isForbidden={conn.isForbidden}
-        isTokenFetching={isTokenFetching}
-        endpointSwitcher={endpointSwitcher}
-        visibilitySwitcher={visibilitySwitcher}
-        onConnect={() => void conn.connect()}
-        onDisconnect={() => void conn.disconnect()}
-        onReconnect={() => void reconnect()}
-        onGetTestKey={onTokenRegenerate}
-      />
+    <Stack gap={1.5} sx={{ height: '100%', minHeight: 0 }}>
+      <ConnectionAlert error={conn.error} errorKind={conn.errorKind} isTokenFetching={isTokenFetching} onGetTestKey={onTokenRegenerate} />
 
-      <Stack sx={mainPanelSx}>
-        {status !== 'connected' ? (
-          <Stack alignItems="center" justifyContent="center" gap={1.5} sx={{ flex: 1, p: 3 }}>
-            <Plug size={36} style={{ opacity: 0.3 }} />
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-              Connect to an MCP server to start inspecting.
-            </Typography>
-          </Stack>
-        ) : (
-          <>
-            <Tabs value={tab} onChange={(_, v) => setTab(v as PlaygroundTab)} sx={{ borderBottom: '1px solid', borderColor: 'divider', px: 2, minHeight: 40 }}>
-              <Tab value="tools" label="Tools" sx={{ minHeight: 40 }} />
-              <Tab value="ping" label="Ping" sx={{ minHeight: 40 }} />
-            </Tabs>
+      <Stack direction="row" gap={2} sx={{ flex: 1, minHeight: 0 }}>
+        <ConnectionSidebar
+          url={url}
+          token={token ?? ''}
+          status={conn.status}
+          isTokenFetching={isTokenFetching}
+          endpointSwitcher={endpointSwitcher}
+          visibilitySwitcher={visibilitySwitcher}
+          onConnect={() => void conn.connect()}
+          onDisconnect={() => void conn.disconnect()}
+          onReconnect={() => void reconnect()}
+          onGetTestKey={onTokenRegenerate}
+        />
 
-            <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>{tab === 'tools' ? <ToolsTab tools={tools} loading={toolsLoading} callTool={conn.callTool} onRefresh={refreshTools} /> : <PingTab ping={conn.ping} />}</Box>
+        <Stack sx={mainPanelSx}>
+          {status !== 'connected' ? (
+            <Stack alignItems="center" justifyContent="center" gap={1.5} sx={{ flex: 1, p: 3 }}>
+              <Plug size={36} style={{ opacity: 0.3 }} />
+              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+                Connect to an MCP server to start inspecting.
+              </Typography>
+            </Stack>
+          ) : (
+            <>
+              <Tabs value={tab} onChange={(_, v) => setTab(v as PlaygroundTab)} sx={{ borderBottom: '1px solid', borderColor: 'divider', px: 2, minHeight: 40 }}>
+                <Tab value="tools" label="Tools" sx={{ minHeight: 40 }} />
+                <Tab value="ping" label="Ping" sx={{ minHeight: 40 }} />
+              </Tabs>
 
-            <Box role="separator" aria-label="Resize activity history" onMouseDown={startResize} sx={resizeHandleSx} />
-            <Box sx={{ height: historyHeight, flexShrink: 0 }}>
-              <HistoryPanel history={conn.history} onClear={conn.clearHistory} />
-            </Box>
-          </>
-        )}
+              <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>{tab === 'tools' ? <ToolsTab tools={tools} loading={toolsLoading} callTool={conn.callTool} onRefresh={refreshTools} /> : <PingTab ping={conn.ping} />}</Box>
+
+              <Box role="separator" aria-label="Resize activity history" onMouseDown={startResize} sx={resizeHandleSx} />
+              <Box sx={{ height: historyHeight, flexShrink: 0 }}>
+                <HistoryPanel history={conn.history} onClear={conn.clearHistory} />
+              </Box>
+            </>
+          )}
+        </Stack>
       </Stack>
     </Stack>
   );
