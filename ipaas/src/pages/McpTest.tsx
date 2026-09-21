@@ -108,6 +108,9 @@ export default function McpTest(scope: ComponentScope): JSX.Element {
   const tokenFetching = IS_CLOUD ? access.isMinting : apim.isFetching;
   const regenerate = IS_CLOUD ? () => void access.mintKey() : apim.regenerate;
   const headerName = IS_CLOUD ? access.authHeader : TEST_KEY_HEADER;
+  // Not offered for an open endpoint: the test-key route switches enforcement to api-key, so
+  // minting would secure an endpoint whose api-key scheme the user turned off.
+  const canMint = !IS_CLOUD || access.mode === 'api-key';
 
   // Non-MCP components keep this route's previous Coming Soon behaviour.
   if (component && !isMcp) {
@@ -141,7 +144,22 @@ export default function McpTest(scope: ComponentScope): JSX.Element {
           // Deployed, but with no enforcing URL to call — a different state from "not deployed".
           <Alert severity="info">{IS_CLOUD && access.isUnavailable ? 'This MCP server isn’t exposed as an API on the gateway yet, so it cannot be tested from here.' : 'No testable endpoint URL is available for this MCP server yet.'}</Alert>
         ) : (
-          <McpPlayground url={mcpUrl} token={token || null} headerName={headerName} isTokenFetching={tokenFetching} onTokenRegenerate={regenerate} endpointSwitcher={endpointSwitcher} visibilitySwitcher={IS_CLOUD ? undefined : visibilitySwitcher} />
+          <>
+            {IS_CLOUD && access.keyError && (
+              <Alert severity="warning" sx={{ mb: 1.5 }}>
+                {access.keyError}
+              </Alert>
+            )}
+            <McpPlayground
+              url={mcpUrl}
+              token={token || null}
+              headerName={headerName}
+              isTokenFetching={tokenFetching}
+              onTokenRegenerate={canMint ? regenerate : undefined}
+              endpointSwitcher={endpointSwitcher}
+              visibilitySwitcher={IS_CLOUD ? undefined : visibilitySwitcher}
+            />
+          </>
         )}
       </PageContent>
     </Box>
