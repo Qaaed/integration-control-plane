@@ -341,10 +341,10 @@ test.describe('03 browse samples @smoke', () => {
     await expect(page.getByPlaceholder('Search samples…')).toBeVisible();
   });
 
-  test('shows the Type, Technology and Tags filter sections', async () => {
+  test('shows the Type and Tags filter sections, and hides Technology', async () => {
     await expect(page.getByRole('button', { name: 'Type', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Technology', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Tags', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Technology', exact: true })).not.toBeVisible();
   });
 
   test('a search with no matches shows the empty-result message', async () => {
