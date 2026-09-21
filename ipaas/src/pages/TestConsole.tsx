@@ -23,6 +23,7 @@ import SwaggerUI from 'swagger-ui-react';
 import 'swagger-ui-react/swagger-ui.css';
 import '../swagger-ui-overrides.scss';
 import { IS_CLOUD } from '../features';
+import { endpointLoadNotice } from '../utils/apiSecurity';
 import { isBrowserReachable, visibilityUrlOptions } from '../utils/endpoints';
 import { useApimSwagger, useGenerateTestKey } from '../hooks/useApim';
 import { useComponentByHandler } from '../hooks/useComponents';
@@ -134,6 +135,11 @@ export default function TestConsole(scope: ComponentScope): JSX.Element {
   // so minting one would secure an endpoint the user deliberately left open.
   const canGetTestKey = IS_CLOUD ? !!testKeyEndpointRef && (access.mode === 'api-key' || access.mode === 'jwt') : !!selectedEndpoint?.apimId;
   const fetchingKey = IS_CLOUD ? access.isMinting : apimFetching;
+  const unavailableNotice = endpointLoadNotice(access.securityError, {
+    notExposed: 'This endpoint isn’t exposed as an API yet, so there is no gateway URL to test against. Set its visibility to Public and deploy, then come back.',
+    unavailable: 'API testing isn’t available in this environment.',
+    readFailed: 'Could not read this endpoint’s security configuration.',
+  });
   const keyError = IS_CLOUD ? access.keyError : apimKeyError;
 
   // Cleared, not just replaced: the hook keys a minted key to its endpoint, so selecting one with
@@ -362,8 +368,8 @@ export default function TestConsole(scope: ComponentScope): JSX.Element {
                 <CircularProgress />
               </Box>
             ) : IS_CLOUD && access.isUnavailable ? (
-              // Not a visibility problem: with no enforcing gateway URL there is nowhere a key means anything.
-              <Alert severity="info">This endpoint is not exposed on the API Platform gateway yet, so it cannot be tested from here.</Alert>
+              // 409 is a state ("not exposed yet"); any other status is a read that failed and may succeed on a retry.
+              <Alert severity={unavailableNotice?.severity ?? 'info'}>{unavailableNotice?.text ?? 'This endpoint is not exposed on the API Platform gateway yet, so it cannot be tested from here.'}</Alert>
             ) : !testable && selectedVisibility ? (
               <Alert severity="info">{selectedVisibility.label} endpoints are not publicly accessible.</Alert>
             ) : swaggerWithServer ? (

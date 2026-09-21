@@ -51,6 +51,8 @@ export interface EndpointTestAccess {
    * a terminal state instead of an endless spinner.
    */
   isUnavailable: boolean;
+  /** The security read's failure, for `endpointLoadNotice` — 409 is a state, other statuses are not. */
+  securityError: unknown;
   /** Mint (or replace) the test key. Resolves to the plaintext, or `null` on failure. */
   mintKey: () => Promise<string | null>;
 }
@@ -75,7 +77,7 @@ const keyOf = (ref: EndpointRef | null | undefined): string => `${ref?.component
  * switches the endpoint to api-key auth as a side effect.
  */
 export function useEndpointTestAccess(ref: EndpointRef | null | undefined, enabled = true): EndpointTestAccess {
-  const { data: security, isError: isSecurityError } = useEndpointSecurity(ref, enabled);
+  const { data: security, isError: isSecurityError, error: securityError } = useEndpointSecurity(ref, enabled);
   const createTestKey = useCreateEndpointTestKey(ref);
 
   // The minted key and any failure are stored against the endpoint they belong
@@ -129,6 +131,7 @@ export function useEndpointTestAccess(ref: EndpointRef | null | undefined, enabl
     // A disabled/incomplete ref leaves both terms false, so an idle hook never
     // reports unavailable — only a real answer does.
     isUnavailable: isSecurityError || (mode !== null && !gatewayUrl),
+    securityError,
     mintKey,
   };
 }
