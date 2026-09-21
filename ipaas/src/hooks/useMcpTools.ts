@@ -42,8 +42,10 @@ interface UseMcpToolsResult {
   tools: McpTool[];
   isLoading: boolean;
   error: string | null;
-  /** 403/forbidden — a permissions issue, not a transient failure. */
+  /** 401/403 — a permissions issue, not a transient failure. */
   isForbidden: boolean;
+  /** 401 only: the credential was rejected, so a fresh one can help — a 403 cannot. */
+  isUnauthorized: boolean;
   refetch: () => void;
 }
 
@@ -59,6 +61,7 @@ export function useMcpTools({ baseUrl, apiKey, authHeader = DEFAULT_AUTH_HEADER,
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isForbidden, setIsForbidden] = useState(false);
+  const [isUnauthorized, setIsUnauthorized] = useState(false);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
 
   useEffect(() => {
@@ -70,6 +73,7 @@ export function useMcpTools({ baseUrl, apiKey, authHeader = DEFAULT_AUTH_HEADER,
       setIsLoading(true);
       setError(null);
       setIsForbidden(false);
+      setIsUnauthorized(false);
       try {
         const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl.replace(/\/+$/, '')}/mcp?transportType=streamable-http`), {
           requestInit: { headers: apiKey ? { [authHeader]: apiKey } : {} },
@@ -84,8 +88,10 @@ export function useMcpTools({ baseUrl, apiKey, authHeader = DEFAULT_AUTH_HEADER,
         const msg = err instanceof Error ? err.message : 'Failed to load tools';
         // Prefer the transport's structured status code; fall back to message
         // matching only when the error isn't a typed StreamableHTTPError.
-        const forbidden = err instanceof StreamableHTTPError ? err.code === 401 || err.code === 403 : /\b(401|403)\b|forbidden|unauthor/i.test(msg);
+        const unauthorized = err instanceof StreamableHTTPError ? err.code === 401 : /\b401\b|unauthor/i.test(msg);
+        const forbidden = unauthorized || (err instanceof StreamableHTTPError ? err.code === 403 : /\b403\b|forbidden/i.test(msg));
         if (forbidden) setIsForbidden(true);
+        if (unauthorized) setIsUnauthorized(true);
         setError(msg);
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -99,5 +105,5 @@ export function useMcpTools({ baseUrl, apiKey, authHeader = DEFAULT_AUTH_HEADER,
   }, [baseUrl, apiKey, authHeader, enabled, refetchTrigger]);
 
   const refetch = useCallback(() => setRefetchTrigger((t) => t + 1), []);
-  return { tools, isLoading, error, isForbidden, refetch };
+  return { tools, isLoading, error, isForbidden, isUnauthorized, refetch };
 }

@@ -20,8 +20,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { ServerCapabilities } from '@modelcontextprotocol/sdk/types.js';
-import { formatMcpError, formatToolResult, isMcpForbiddenError } from '../utils/mcp';
-import type { JsonValue, McpConnectionStatus, McpHistoryEvent, McpHistoryEventType, McpPingResult, McpTool, McpToolResult } from '../types/mcp';
+import { classifyMcpError, formatMcpError, formatToolResult } from '../utils/mcp';
+import type { JsonValue, McpConnectionStatus, McpErrorKind, McpHistoryEvent, McpHistoryEventType, McpPingResult, McpTool, McpToolResult } from '../types/mcp';
 
 /** Per-request timeout, matching the playground library. */
 const REQUEST_TIMEOUT_MS = 60_000;
@@ -38,8 +38,8 @@ interface UseMcpConnectionParams {
 export interface UseMcpConnectionResult {
   status: McpConnectionStatus;
   error: string | null;
-  /** 401/403 on connect — a permissions issue, not a transient failure. */
-  isForbidden: boolean;
+  /** How the last connect failed, so the UI can name a cause the message cannot. */
+  errorKind: McpErrorKind | null;
   serverCapabilities: ServerCapabilities | null;
   history: McpHistoryEvent[];
   connect: () => Promise<void>;
@@ -59,7 +59,7 @@ export interface UseMcpConnectionResult {
 export function useMcpConnection({ url, token, headerName }: UseMcpConnectionParams): UseMcpConnectionResult {
   const [status, setStatus] = useState<McpConnectionStatus>('disconnected');
   const [error, setError] = useState<string | null>(null);
-  const [isForbidden, setIsForbidden] = useState(false);
+  const [errorKind, setErrorKind] = useState<McpErrorKind | null>(null);
   const [serverCapabilities, setServerCapabilities] = useState<ServerCapabilities | null>(null);
   const [history, setHistory] = useState<McpHistoryEvent[]>([]);
   const clientRef = useRef<Client | null>(null);
@@ -87,7 +87,7 @@ export function useMcpConnection({ url, token, headerName }: UseMcpConnectionPar
     clientRef.current = null;
     setStatus('connecting');
     setError(null);
-    setIsForbidden(false);
+    setErrorKind(null);
     try {
       const endpoint = new URL(url);
       if (!endpoint.searchParams.has('transportType')) endpoint.searchParams.set('transportType', 'streamable-http');
@@ -102,7 +102,7 @@ export function useMcpConnection({ url, token, headerName }: UseMcpConnectionPar
       const message = formatMcpError(err);
       setStatus('error');
       setError(message);
-      setIsForbidden(isMcpForbiddenError(err));
+      setErrorKind(classifyMcpError(err));
       addHistoryEvent('error', 'connect', message);
     }
   }, [url, token, headerName, addHistoryEvent]);
@@ -163,5 +163,5 @@ export function useMcpConnection({ url, token, headerName }: UseMcpConnectionPar
     [],
   );
 
-  return { status, error, isForbidden, serverCapabilities, history, connect, disconnect, listTools, callTool, ping, clearHistory };
+  return { status, error, errorKind, serverCapabilities, history, connect, disconnect, listTools, callTool, ping, clearHistory };
 }
