@@ -16,12 +16,14 @@
  * under the License.
  */
 
-import { Box, MenuItem, PageContent, PageTitle, Select, Stack } from '@wso2/oxygen-ui';
+import { Alert, Box, MenuItem, PageContent, PageTitle, Select, Stack } from '@wso2/oxygen-ui';
 import { useEffect, useMemo, useState, type JSX } from 'react';
 import ComingSoon from './ComingSoon';
 import McpPlayground from '../components/McpPlayground/McpPlayground';
 import DeploymentTrackBar from '../components/DeploymentTrackBar';
+import { IS_CLOUD } from '../features';
 import { useGeneratedTestKey } from '../hooks/useApim';
+import { useEndpointTestAccess } from '../hooks/useEndpointTestAccess';
 import { useComponentByHandler } from '../hooks/useComponents';
 import { useComponentDeployment, useEnvEndpoints } from '../hooks/useDeployments';
 import { useEnvironments } from '../hooks/useEnvironments';
@@ -29,6 +31,7 @@ import { useOrgUuid } from '../hooks/useOrgUuid';
 import { useProjectId } from '../hooks/useProjects';
 import type { ComponentScope } from '../nav';
 import type { EnvEndpoint } from '../types/component';
+import type { EndpointRef } from '../types/consumers';
 
 import NotDeployedAlert from '../components/NotDeployedAlert';
 import { PILL_SELECT_SX } from '../constants/styles';
@@ -72,8 +75,8 @@ export default function McpTest(scope: ComponentScope): JSX.Element {
   const releaseId = deployment?.releaseId ?? '';
   const { data: endpoints = [] } = useEnvEndpoints(component?.id ?? '', selectedTrackId, releaseId);
 
-  // Only endpoints with an APIM id are testable; the user picks the endpoint + visibility.
-  const testableEndpoints = useMemo(() => endpoints.filter((e) => e.apimId), [endpoints]);
+  // Cloud has no APIM, so requiring an apimId there would reject every endpoint.
+  const testableEndpoints = useMemo(() => endpoints.filter((e) => e.publicUrl && (IS_CLOUD || e.apimId)), [endpoints]);
   const [selectedEndpointId, setSelectedEndpointId] = useState('');
   const [selectedVisibility, setSelectedVisibility] = useState('');
 
@@ -83,16 +86,31 @@ export default function McpTest(scope: ComponentScope): JSX.Element {
   const visibilityOptions = useMemo(() => (activeEndpoint ? VISIBILITY_OPTIONS.filter((v) => v.getUrl(activeEndpoint) && (!activeEndpoint.networkVisibilities?.length || activeEndpoint.networkVisibilities.includes(v.label))) : []), [activeEndpoint]);
   const activeVisibility = visibilityOptions.some((v) => v.value === selectedVisibility) ? selectedVisibility : (visibilityOptions[0]?.value ?? '');
 
-  const baseUrl = visibilityOptions.find((v) => v.value === activeVisibility)?.getUrl(activeEndpoint!) ?? '';
-  const mcpUrl = baseUrl ? `${baseUrl}/mcp` : '';
   const apimId = activeEndpoint?.apimId ?? null;
   // Only a live deployment can answer MCP calls; every other state explains itself.
   const isActive = deployment?.deploymentStatusV2 === 'ACTIVE';
 
+  const accessRef: EndpointRef | null = useMemo(
+    () => (IS_CLOUD && component && selectedEnv && activeEndpoint ? { componentName: component.id, environmentName: selectedEnv.id, endpointName: activeEndpoint.id } : null),
+    [component, selectedEnv, activeEndpoint],
+  );
+  const access = useEndpointTestAccess(accessRef, IS_CLOUD && !!accessRef && isActive);
+
+  // No gateway URL means nothing is testable: the endpoint's own route has no policy engine in its path.
+  const baseUrl = IS_CLOUD ? access.gatewayUrl : (visibilityOptions.find((v) => v.value === activeVisibility)?.getUrl(activeEndpoint!) ?? '');
+  const mcpUrl = baseUrl ? `${baseUrl}/mcp` : '';
+
   const endpointSwitcher = { options: testableEndpoints.map((e) => ({ label: e.displayName, value: e.id })), value: activeEndpointId, onChange: setSelectedEndpointId };
   const visibilitySwitcher = { options: visibilityOptions.map((v) => ({ label: v.label, value: v.value })), value: activeVisibility, onChange: setSelectedVisibility };
 
-  const { token, isFetching: tokenFetching, regenerate } = useGeneratedTestKey({ apimId, critical: !!selectedEnv?.critical });
+  const apim = useGeneratedTestKey({ apimId, critical: !!selectedEnv?.critical });
+  const token = IS_CLOUD ? access.apiKey : apim.token;
+  const tokenFetching = IS_CLOUD ? access.isMinting : apim.isFetching;
+  const regenerate = IS_CLOUD ? () => void access.mintKey() : apim.regenerate;
+  const headerName = IS_CLOUD ? access.authHeader : TEST_KEY_HEADER;
+  // Not offered for an open endpoint: the test-key route switches enforcement to api-key, so
+  // minting would secure an endpoint whose api-key scheme the user turned off.
+  const canMint = !IS_CLOUD || access.mode === 'api-key';
 
   // Non-MCP components keep this route's previous Coming Soon behaviour.
   if (component && !isMcp) {
@@ -120,10 +138,28 @@ export default function McpTest(scope: ComponentScope): JSX.Element {
           </PageTitle>
           {envSelector}
         </Stack>
-        {!isActive || !mcpUrl ? (
+        {!isActive ? (
           <NotDeployedAlert status={deployment?.deploymentStatusV2} />
+        ) : !mcpUrl ? (
+          // Deployed, but with no enforcing URL to call — a different state from "not deployed".
+          <Alert severity="info">{IS_CLOUD && access.isUnavailable ? 'This MCP server isn’t exposed as an API on the gateway yet, so it cannot be tested from here.' : 'No testable endpoint URL is available for this MCP server yet.'}</Alert>
         ) : (
-          <McpPlayground url={mcpUrl} token={token || null} headerName={TEST_KEY_HEADER} isTokenFetching={tokenFetching} onTokenRegenerate={regenerate} endpointSwitcher={endpointSwitcher} visibilitySwitcher={visibilitySwitcher} />
+          <>
+            {IS_CLOUD && access.keyError && (
+              <Alert severity="warning" sx={{ mb: 1.5 }}>
+                {access.keyError}
+              </Alert>
+            )}
+            <McpPlayground
+              url={mcpUrl}
+              token={token || null}
+              headerName={headerName}
+              isTokenFetching={tokenFetching}
+              onTokenRegenerate={canMint ? regenerate : undefined}
+              endpointSwitcher={endpointSwitcher}
+              visibilitySwitcher={IS_CLOUD ? undefined : visibilitySwitcher}
+            />
+          </>
         )}
       </PageContent>
     </Box>
