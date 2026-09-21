@@ -119,16 +119,16 @@ export function useEndpointTestAccess(ref: EndpointRef | null | undefined, enabl
     void mintKey();
   }, [enabled, mode, mintKey]);
 
-  // Keyed by the failing credential, so one 401 mints once and cannot loop.
+  // One re-mint per endpoint: a fresh key 401s the same way when the cause is not the key,
+  // so retrying per credential would mint without end.
   const retriedFor = useRef<string | null>(null);
   const retryUnauthorized = useCallback(() => {
     // An open endpoint's 401 is not a stale key, and minting would switch it to api-key auth.
     if (mode !== 'api-key') return;
-    const attempt = `${refKey}|${minted?.key ?? ''}`;
-    if (retriedFor.current === attempt) return;
-    retriedFor.current = attempt;
+    if (retriedFor.current === refKey) return;
+    retriedFor.current = refKey;
     void mintKey();
-  }, [mode, refKey, minted?.key, mintKey]);
+  }, [mode, refKey, mintKey]);
 
   const gatewayUrl = security?.publicUrl ?? '';
 

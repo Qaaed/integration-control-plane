@@ -100,7 +100,7 @@ export default function EnvCardBody({ component, env, versionId, releaseId, hasD
   // enforcement to api-key auth, which must be a deliberate choice.
   const needsManualKey = IS_CLOUD && access.mode === 'jwt' && !access.apiKey;
 
-  const { tools, isLoading, error, isForbidden, refetch } = useMcpTools({
+  const { tools, isLoading, error, isForbidden, isUnauthorized, refetch } = useMcpTools({
     baseUrl,
     apiKey,
     authHeader: IS_CLOUD ? access.authHeader : undefined,
@@ -108,9 +108,10 @@ export default function EnvCardBody({ component, env, versionId, releaseId, hasD
   });
 
   // Another surface can reap this key, so a 401 is worth one re-mint; useMcpTools re-runs on it.
+  // A 403 is authenticated but not permitted, so a fresh key changes nothing.
   useEffect(() => {
-    if (isForbidden) access.retryUnauthorized();
-  }, [isForbidden, access]);
+    if (isUnauthorized) access.retryUnauthorized();
+  }, [isUnauthorized, access]);
 
   if (loadingDeployment) return <EnvCardSkeleton />;
 
