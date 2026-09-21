@@ -107,6 +107,11 @@ export default function EnvCardBody({ component, env, versionId, releaseId, hasD
     enabled: isDeploymentReady && !!baseUrl && isAuthorized,
   });
 
+  // Another surface can reap this key, so a 401 is worth one re-mint; useMcpTools re-runs on it.
+  useEffect(() => {
+    if (isForbidden) access.retryUnauthorized();
+  }, [isForbidden, access]);
+
   if (loadingDeployment) return <EnvCardSkeleton />;
 
   if (!hasDeployment) {

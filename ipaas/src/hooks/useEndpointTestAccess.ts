@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { DEFAULT_API_KEY_HEADER } from '../constants/apiConsumption';
 import { useCreateEndpointTestKey, useEndpointSecurity } from './useConsumers';
 import type { EndpointRef, SecurityMode } from '../types/consumers';
@@ -55,6 +55,8 @@ export interface EndpointTestAccess {
   securityError: unknown;
   /** Mint (or replace) the test key. Resolves to the plaintext, or `null` on failure. */
   mintKey: () => Promise<string | null>;
+  /** Re-mint after a 401, once per key — a test key expires, and another surface may reap it. */
+  retryUnauthorized: () => void;
 }
 
 const MINT_FAILED = 'Could not mint a test key.';
@@ -117,6 +119,17 @@ export function useEndpointTestAccess(ref: EndpointRef | null | undefined, enabl
     void mintKey();
   }, [enabled, mode, mintKey]);
 
+  // Keyed by the failing credential, so one 401 mints once and cannot loop.
+  const retriedFor = useRef<string | null>(null);
+  const retryUnauthorized = useCallback(() => {
+    // An open endpoint's 401 is not a stale key, and minting would switch it to api-key auth.
+    if (mode !== 'api-key') return;
+    const attempt = `${refKey}|${minted?.key ?? ''}`;
+    if (retriedFor.current === attempt) return;
+    retriedFor.current = attempt;
+    void mintKey();
+  }, [mode, refKey, minted?.key, mintKey]);
+
   const gatewayUrl = security?.publicUrl ?? '';
 
   return {
@@ -133,5 +146,6 @@ export function useEndpointTestAccess(ref: EndpointRef | null | undefined, enabl
     isUnavailable: isSecurityError || (mode !== null && !gatewayUrl),
     securityError,
     mintKey,
+    retryUnauthorized,
   };
 }
