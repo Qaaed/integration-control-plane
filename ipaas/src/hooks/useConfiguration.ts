@@ -19,6 +19,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchCertificateGroups, fetchConfigGroups, fetchCertificateMappings, fetchSchemaConfig, fetchConfigMgt, saveSchemaConfig, postConfigMgt, postCertificateMappings } from '#api/configuration';
 import type { CertMapping, SchemaConfigItem, SaveSchemaConfigInput, PostConfigMgtInput } from '../types/configuration';
+import { IS_CLOUD } from '../features';
 
 export function useCertificateGroups(projectId: string, componentId: string, enabled: boolean) {
   return useQuery({
@@ -51,9 +52,8 @@ export function useSchemaConfig(projectId: string, componentId: string, envId: s
   return useQuery({
     queryKey: ['schemaConfig', projectId, componentId, envId, deploymentTrackId, commitHash],
     queryFn: () => fetchSchemaConfig(projectId, componentId, envId, deploymentTrackId, commitHash),
-    // The backend requires commitHash on this endpoint — firing before it resolves
-    // (it's usually sourced from a separate deployment/build query) gets a guaranteed 400.
-    enabled: !!projectId && !!componentId && !!envId && !!deploymentTrackId && !!commitHash,
+    // WIP's endpoint 400s without commitHash; cloud's ignores it, and waiting would hide the schema when a deploy fails before producing a commit.
+    enabled: !!projectId && !!componentId && !!envId && !!deploymentTrackId && (IS_CLOUD || !!commitHash),
     retry: false,
   });
 }

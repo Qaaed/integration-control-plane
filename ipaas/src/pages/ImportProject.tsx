@@ -307,7 +307,7 @@ export default function ImportProject(scope: OrgScope): JSX.Element {
                       {isCredentialMode ? (
                         gitProviderIcon(credProvider!, 16)
                       ) : (
-                        <Box sx={{ color: 'common.black', display: 'flex' }}>
+                        <Box sx={{ color: 'text.primary', display: 'flex' }}>
                           <GitHub size={16} />
                         </Box>
                       )}

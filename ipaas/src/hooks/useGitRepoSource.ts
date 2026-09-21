@@ -80,6 +80,19 @@ export function useGitRepoSource(credentialsEnabled: boolean) {
   // Stable reference so the workspace-detection effect below doesn't re-run every render.
   const repoContents = useMemo(() => repoContentsData ?? [], [repoContentsData]);
 
+  // Pre-select the first org so the repo picker is usable right after authorizing.
+  // Clearing the repo here feeds the reset effect below, which drops branch and sub-path.
+  useEffect(() => {
+    if (isPublicRepo || !userRepos?.length) return;
+    const org = userRepos.find((o) => o.orgName === selectedOrg);
+    if (!org) {
+      setSelectedOrg(userRepos[0].orgName);
+      setSelectedRepo('');
+      return;
+    }
+    if (selectedRepo && !org.repositories.some((r) => r.name === selectedRepo)) setSelectedRepo('');
+  }, [userRepos, isPublicRepo]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-select default branch; preserve an already-valid selection on refetch
   useEffect(() => {
     if (!branches || branches.length === 0) return;

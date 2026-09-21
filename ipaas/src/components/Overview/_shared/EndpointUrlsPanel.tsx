@@ -22,6 +22,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFetchComponentEndpointSpec } from '../../../hooks/useComponents';
 import type { EnvEndpoint } from '../../../types/component';
 import { trimEndpointName } from '../../../utils/endpoints';
+import { decodeBase64Spec, specFileType } from '../../../utils/openApiSpec';
+import { IS_CLOUD } from '../../../features';
 
 function CopyButton({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
@@ -133,15 +135,20 @@ export default function EndpointUrlsPanel({ endpoints, selectedIdx, onSelect, co
   // Fallback to invokeUrl if no visibility-specific URL
   const fallbackUrl = urlRows.length === 0 ? ep.invokeUrl || '' : '';
 
+  // Cloud's spec endpoint is a stub that always answers null; the real document already
+  // arrives with the endpoint list, base64 in the apimRevisionId slot (see cloud/deployments.ts).
+  const inlineSpec = IS_CLOUD ? decodeBase64Spec(ep.apimRevisionId) : null;
+  const canDownload = IS_CLOUD ? !!inlineSpec : !!ep.id;
+
   const handleDownload = async () => {
-    if (!ep.id) return;
     try {
-      const content = await fetchSpecMutation.mutateAsync({ componentId, versionId: deploymentTrackId, endpointId: ep.id });
+      const content = inlineSpec ?? (ep.id ? await fetchSpecMutation.mutateAsync({ componentId, versionId: deploymentTrackId, endpointId: ep.id }) : null);
       if (!content) return;
-      const blob = new Blob([content], { type: 'text/yaml' });
+      const { extension, mimeType } = specFileType(content);
+      const blob = new Blob([content], { type: mimeType });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `${trimEndpointName(ep.displayName) || 'api'}-spec.yaml`;
+      link.download = `${trimEndpointName(ep.displayName) || 'api'}-spec.${extension}`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -194,10 +201,12 @@ export default function EndpointUrlsPanel({ endpoints, selectedIdx, onSelect, co
       </Box>
 
       <Box sx={{ alignSelf: 'center' }}>
-        <Tooltip title="Download API specification">
-          <IconButton size="small" onClick={() => void handleDownload()}>
-            <Download size={16} />
-          </IconButton>
+        <Tooltip title={canDownload ? 'Download API specification' : 'No API specification published for this endpoint'}>
+          <span>
+            <IconButton size="small" disabled={!canDownload} onClick={() => void handleDownload()}>
+              <Download size={16} />
+            </IconButton>
+          </span>
         </Tooltip>
       </Box>
     </Box>

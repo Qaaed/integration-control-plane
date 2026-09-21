@@ -30,6 +30,7 @@ import LabelDialog from '../../LabelDialog';
 import { formatDistanceToNow } from '../../../utils/time';
 import { getGitProviderIcon } from '../../../utils/build';
 import { buildRepoBrowseUrl } from '../../../utils/gitProviderUrl';
+import { DESCRIPTION_MAX_LENGTH, clampDescription, isAtNewlineLimit } from '../../../utils/description';
 import { useAuth } from '../../../auth/AuthContext';
 import { useOrgUuid } from '../../../hooks/useOrgUuid';
 import { getDisplayLabel } from '../../../constants/integrations';
@@ -394,14 +395,17 @@ export default function ComponentHeader({ component, project, repository, latest
                   inputRef={descInputRef}
                   multiline
                   value={descValue}
-                  onChange={(e) => setDescValue(e.target.value)}
+                  onChange={(e) => setDescValue(clampDescription(e.target.value))}
                   onBlur={commitDescEdit}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') {
                       e.preventDefault();
                       cancelDescEdit();
+                      return;
                     }
+                    if (e.key === 'Enter' && isAtNewlineLimit(descValue)) e.preventDefault();
                   }}
+                  inputProps={{ maxLength: DESCRIPTION_MAX_LENGTH }}
                   sx={(theme) => ({
                     position: 'absolute',
                     inset: '-4px',
@@ -409,6 +413,8 @@ export default function ComponentHeader({ component, project, repository, latest
                     border: `2px solid ${theme.palette.primary.main}`,
                     borderRadius: `${theme.shape.borderRadius}px`,
                     alignItems: 'flex-start',
+                    // The ghost text below is line-clamped, so the box cannot grow with the input.
+                    overflow: 'hidden',
                     '& textarea': {
                       ...theme.typography.body2,
                       padding: 0,
@@ -416,6 +422,7 @@ export default function ComponentHeader({ component, project, repository, latest
                       border: 'none',
                       outline: 'none',
                       background: 'transparent',
+                      overflowY: 'auto !important',
                     },
                   })}
                   disabled={updateDesc.isPending}

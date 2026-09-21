@@ -81,7 +81,7 @@ export default function GitHubAuthArea({ authStatus, isCheckingAuth, isAuthentic
           variant="outlined"
           size="small"
           startIcon={
-            <Box sx={{ color: 'common.black', display: 'flex' }}>
+            <Box sx={{ color: 'text.primary', display: 'flex' }}>
               <GitHub size={16} />
             </Box>
           }
@@ -102,7 +102,7 @@ export default function GitHubAuthArea({ authStatus, isCheckingAuth, isAuthentic
         variant="outlined"
         size="small"
         startIcon={
-          <Box sx={{ color: 'common.black', display: 'flex' }}>
+          <Box sx={{ color: 'text.primary', display: 'flex' }}>
             <GitHub size={16} />
           </Box>
         }

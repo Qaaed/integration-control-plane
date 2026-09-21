@@ -41,12 +41,15 @@ export interface Component {
   deleting?: boolean;
   /** 'BI' | 'MI' | 'other' — 'other' is another platform's runtime. Cloud only. */
   buildpackType?: string;
+  deploymentTracks?: DeploymentTrack[];
 }
 
 export interface DeploymentTrack {
   id: string;
   autoDeployEnabled?: boolean;
   branch?: string;
+  /** Clone URL of the repository this track builds from. Cloud only. */
+  url?: string;
   apiVersion?: string;
   description?: string;
   latest?: boolean;
@@ -88,7 +91,6 @@ export interface ApiVersion {
 
 export interface ComponentDetail extends Component {
   orgHandler: string;
-  deploymentTracks?: DeploymentTrack[];
   apiVersions?: ApiVersion[];
 }
 

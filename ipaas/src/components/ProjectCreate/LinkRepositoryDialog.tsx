@@ -21,7 +21,7 @@ import BusyFields from '../common/BusyFields';
 import { IS_CLOUD } from '../../features';
 import { CLOUD_COMING_SOON_PROVIDERS, providerComingSoonLabel } from '../../constants/gitProviders';
 import { ArrowLeft, GitBranch, GitHub, X } from '@wso2/oxygen-ui-icons-react';
-import { useMemo, useState, type JSX } from 'react';
+import { useEffect, useMemo, useState, type JSX } from 'react';
 import GitLogoIcon from '../../assets/icons/GitLogoIcon';
 import GitLabIcon from '../../assets/icons/GitLabIcon';
 import BitbucketIcon from '../../assets/icons/BitbucketIcon';
@@ -95,6 +95,25 @@ export default function LinkRepositoryDialog({ open, onClose, project, orgHandle
   // to pick and no way to recover.
   const gitHubReposReady = isGitHub && authStatus === 'done' && !reposLoading && !reposError && orgOptions.length > 0;
   const showGitHubAuthArea = isGitHub && !gitHubReposReady;
+
+  // Matches what every manual org/repo change below does; this file has no reset effect.
+  const clearRepoSelection = () => {
+    setSelectedRepo('');
+    setSelectedBranch('');
+    setDirectoryPath('/');
+  };
+
+  // Pre-select the first org so the repo picker is usable right after authorizing.
+  useEffect(() => {
+    if (isPublic || !userRepos?.length) return;
+    const org = userRepos.find((o) => o.orgName === selectedOrg);
+    if (!org) {
+      setSelectedOrg(userRepos[0].orgName);
+      clearRepoSelection();
+      return;
+    }
+    if (selectedRepo && !org.repositories.some((r) => r.name === selectedRepo)) clearRepoSelection();
+  }, [userRepos, isPublic]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resetPickers = () => {
     setSelectedOrg('');
