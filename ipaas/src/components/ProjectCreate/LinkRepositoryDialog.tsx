@@ -96,13 +96,23 @@ export default function LinkRepositoryDialog({ open, onClose, project, orgHandle
   const gitHubReposReady = isGitHub && authStatus === 'done' && !reposLoading && !reposError && orgOptions.length > 0;
   const showGitHubAuthArea = isGitHub && !gitHubReposReady;
 
+  // Matches what every manual org/repo change below does; this file has no reset effect.
+  const clearRepoSelection = () => {
+    setSelectedRepo('');
+    setSelectedBranch('');
+    setDirectoryPath('/');
+  };
+
   // Pre-select the first org so the repo picker is usable right after authorizing.
   useEffect(() => {
     if (isPublic || !userRepos?.length) return;
-    if (!selectedOrg || !userRepos.some((o) => o.orgName === selectedOrg)) {
+    const org = userRepos.find((o) => o.orgName === selectedOrg);
+    if (!org) {
       setSelectedOrg(userRepos[0].orgName);
-      setSelectedRepo('');
+      clearRepoSelection();
+      return;
     }
+    if (selectedRepo && !org.repositories.some((r) => r.name === selectedRepo)) clearRepoSelection();
   }, [userRepos, isPublic]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resetPickers = () => {
