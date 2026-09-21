@@ -43,27 +43,24 @@ describe('corsFromPolicy', () => {
   });
 });
 
-describe('platform CORS entries', () => {
-  it('carries what the BFF injected, so the drawer can show it without offering to remove it', () => {
-    const value = corsFromPolicy({ enabled: true, allowOrigins: ['https://app.example', 'https://console.example'], allowHeaders: ['X-API-Key'], allowCredentials: false }, ['https://console.example'], ['X-API-Key']);
-    expect(value.platformOrigins).toEqual(['https://console.example']);
-    expect(value.platformHeaders).toEqual(['X-API-Key']);
-    expect(value.origins).toContain('https://app.example');
+describe('platform seeds', () => {
+  const platform = { origins: ['https://console.example'], headers: ['X-API-Key'] };
+
+  it('seeds an empty list, so re-enabling CORS leaves the endpoint testable', () => {
+    const value = corsFromPolicy({ enabled: false, allowCredentials: false }, platform.origins, platform.headers);
+    expect(value.origins).toEqual(platform.origins);
+    expect(value.headers).toEqual([...DEFAULT_CORS_HEADERS, 'X-API-Key']);
   });
 
-  it('does not send them back — the BFF re-injects them, and echoing makes them look like the user\'s own', () => {
-    const policy = corsToPolicy({
-      enabled: true,
-      allowAllOrigins: false,
-      origins: ['https://app.example', 'https://console.example'],
-      headers: ['authorization', 'X-API-Key'],
-      methods: ['GET'],
-      allowCredentials: false,
-      platformOrigins: ['https://console.example'],
-      platformHeaders: ['x-api-key'],
-    });
+  it('leaves a populated list alone, so a removed entry stays removed', () => {
+    const value = corsFromPolicy({ enabled: true, allowOrigins: ['https://app.example'], allowHeaders: ['authorization'], allowCredentials: false }, platform.origins, platform.headers);
+    expect(value.origins).toEqual(['https://app.example']);
+    expect(value.headers).toEqual(['authorization']);
+  });
+
+  it('sends the list back as it stands — nothing re-adds the platform entries', () => {
+    const policy = corsToPolicy({ enabled: true, allowAllOrigins: false, origins: ['https://app.example'], headers: ['authorization'], methods: ['GET'], allowCredentials: false, platformOrigins: platform.origins, platformHeaders: platform.headers });
     expect(policy.allowOrigins).toEqual(['https://app.example']);
-    // Header names are case-insensitive, so the match must be too.
     expect(policy.allowHeaders).toEqual(['authorization']);
   });
 });

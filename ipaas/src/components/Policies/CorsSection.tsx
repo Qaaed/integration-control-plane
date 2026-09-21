@@ -17,7 +17,7 @@
  */
 
 import { Alert, Autocomplete, Checkbox, Chip, Collapse, FormControlLabel, Stack, Switch, TextField, Typography } from '@wso2/oxygen-ui';
-import { Lock } from '@wso2/oxygen-ui-icons-react';
+import { Info } from '@wso2/oxygen-ui-icons-react';
 import type { ReactNode } from 'react';
 import { CORS_METHOD_OPTIONS, DEFAULT_CORS_HEADERS } from '../../constants/policy';
 import type { CorsConfig } from '../../types/policy';
@@ -30,9 +30,7 @@ interface CorsSectionProps {
   disabled?: boolean;
 }
 
-function TagField({ label, placeholder, options, values, onChange, disabled, locked }: { label: string; placeholder: string; options: string[]; values: string[]; onChange: (v: string[]) => void; disabled?: boolean; locked?: string[] }) {
-  // Autocomplete also drops tags on backspace, so a locked entry has to be re-added, not just undeletable.
-  const keepLocked = (next: string[]) => onChange([...next, ...(locked ?? []).filter((l) => !isPlatformEntry(l, next))]);
+function TagField({ label, placeholder, options, values, onChange, disabled, seeded }: { label: string; placeholder: string; options: string[]; values: string[]; onChange: (v: string[]) => void; disabled?: boolean; seeded?: string[] }) {
   return (
     <Autocomplete
       multiple
@@ -41,20 +39,20 @@ function TagField({ label, placeholder, options, values, onChange, disabled, loc
       options={options}
       value={values}
       disabled={disabled}
-      onChange={(_, v) => keepLocked(v as string[])}
+      onChange={(_, v) => onChange(v as string[])}
       renderTags={(tags: string[], getTagProps) =>
         tags.map((option, index) => {
-          const { key, onDelete, ...tagProps } = getTagProps({ index });
-          const isLocked = isPlatformEntry(option, locked);
+          const { key, ...tagProps } = getTagProps({ index });
+          // Marked, not locked: removing it is allowed, and costs the Test Console its access.
+          const isSeeded = isPlatformEntry(option, seeded);
           return (
             <Chip
               key={key}
               label={option}
               size="small"
               variant="outlined"
-              icon={isLocked ? <Lock size={11} /> : undefined}
-              title={isLocked ? 'Added by the platform so the Test Console can call this endpoint' : undefined}
-              onDelete={isLocked ? undefined : onDelete}
+              icon={isSeeded ? <Info size={11} /> : undefined}
+              title={isSeeded ? 'Added by default so the Test Console can call this endpoint. Removing it stops the console testing this endpoint.' : undefined}
               {...tagProps}
             />
           );
@@ -90,10 +88,10 @@ export default function CorsSection({ value, onChange, disabled }: CorsSectionPr
           />
 
           {!value.allowAllOrigins && (
-            <TagField label="Access control allow origins" placeholder="e.g. https://app.example.com" options={[]} values={value.origins} onChange={(v) => onChange({ ...value, origins: v })} disabled={disabled} locked={value.platformOrigins} />
+            <TagField label="Access control allow origins" placeholder="e.g. https://app.example.com" options={[]} values={value.origins} onChange={(v) => onChange({ ...value, origins: v })} disabled={disabled} seeded={value.platformOrigins} />
           )}
 
-          <TagField label="Access control allow headers" placeholder="Add a header" options={DEFAULT_CORS_HEADERS} values={value.headers} onChange={(v) => onChange({ ...value, headers: v })} disabled={disabled} locked={value.platformHeaders} />
+          <TagField label="Access control allow headers" placeholder="Add a header" options={DEFAULT_CORS_HEADERS} values={value.headers} onChange={(v) => onChange({ ...value, headers: v })} disabled={disabled} seeded={value.platformHeaders} />
 
           <TagField label="Access control allow methods" placeholder="Add a method" options={CORS_METHOD_OPTIONS} values={value.methods} onChange={(v) => onChange({ ...value, methods: v })} disabled={disabled} />
 

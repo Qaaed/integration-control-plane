@@ -18,16 +18,18 @@
 
 import { Alert, Autocomplete, Box, Button, CircularProgress, Divider, IconButton, InputAdornment, OutlinedInput, PageContent, Stack, TextField, Tooltip, Typography } from '@wso2/oxygen-ui';
 import { Check, Copy, Eye, EyeOff, Key } from '@wso2/oxygen-ui-icons-react';
-import { useMemo, useRef, useState, type JSX } from 'react';
+import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import SwaggerUI from 'swagger-ui-react';
 import 'swagger-ui-react/swagger-ui.css';
 import '../swagger-ui-overrides.scss';
-import { DEFAULT_API_KEY_HEADER } from '../constants/apiConsumption';
 import { IS_CLOUD } from '../features';
+import { endpointLoadNotice } from '../utils/apiSecurity';
 import { isBrowserReachable, visibilityUrlOptions } from '../utils/endpoints';
 import { useApimSwagger, useGenerateTestKey } from '../hooks/useApim';
 import { useComponentByHandler } from '../hooks/useComponents';
-import { useCreateEndpointTestKey, useEndpointPolicies, useEndpointSecurity } from '../hooks/useConsumers';
+import { APIM_TEST_KEY_HEADER } from '../constants/apiConsumption';
+import { useEndpointPolicies } from '../hooks/useConsumers';
+import { useEndpointTestAccess } from '../hooks/useEndpointTestAccess';
 import { useComponentDeployment, useEnvEndpoints } from '../hooks/useDeployments';
 import { useEnvironments } from '../hooks/useEnvironments';
 import { useOrgUuid } from '../hooks/useOrgUuid';
@@ -35,14 +37,11 @@ import DeploymentTrackBar from '../components/DeploymentTrackBar';
 import NotFound from '../components/NotFound';
 import { useProjectId } from '../hooks/useProjects';
 import type { EndpointRef } from '../types/consumers';
-import { friendlyApiError } from '../utils/apiSecurity';
 import { broaden, resourceUrl, type ComponentScope } from '../nav';
 
 import NotDeployedAlert from '../components/NotDeployedAlert';
 import EnvironmentSelect from '../components/common/EnvironmentSelect';
 /** Header the APIM gateway reads the test key from. Cloud uses the api-key-auth header instead. */
-const APIM_TEST_KEY_HEADER = 'test-key';
-const TEST_KEY_HEADER = IS_CLOUD ? DEFAULT_API_KEY_HEADER : APIM_TEST_KEY_HEADER;
 
 // Hides SwaggerUI top chrome — keeps only the operations list with try-it-out
 const HideTopPlugin = () => ({
@@ -98,58 +97,77 @@ export default function TestConsole(scope: ComponentScope): JSX.Element {
     () => (IS_CLOUD && component && selectedEnv && selectedEndpoint ? { componentName: component.id, environmentName: selectedEnv.id, endpointName: selectedEndpoint.id } : null),
     [component, selectedEnv, selectedEndpoint],
   );
-  const { data: apiSecurity } = useEndpointSecurity(testKeyEndpointRef, IS_CLOUD && !!testKeyEndpointRef);
+  const access = useEndpointTestAccess(testKeyEndpointRef, IS_CLOUD && !!testKeyEndpointRef);
   // Try-it-out runs in the browser, so the gateway must return CORS headers for this origin.
   const { data: endpointPolicies } = useEndpointPolicies(testKeyEndpointRef, IS_CLOUD && !!testKeyEndpointRef);
+  const testKeyHeader = IS_CLOUD ? access.authHeader : APIM_TEST_KEY_HEADER;
   const corsBlocked = IS_CLOUD && !!endpointPolicies && endpointPolicies.cors?.enabled === false;
-  // The apip gateway host is where the api-key/JWT is actually enforced; the raw visibility URLs are
-  // open (policy-engine not in path), so a test key means nothing there.
-  const gatewayInvokeUrl = apiSecurity?.publicUrl ?? '';
 
-  // The options name the endpoint's actual visibilities. An exposed endpoint's Public URL is the
-  // API Platform gateway host, so try-it-out (with the minted test key) still exercises the secured
-  // API rather than the open raw route.
-  const visibilityOptions = useMemo(() => (selectedEndpoint ? visibilityUrlOptions(selectedEndpoint, gatewayInvokeUrl) : []), [selectedEndpoint, gatewayInvokeUrl]);
+  // Public is the gateway host where a key is enforced; without one the option is dropped, not downgraded to the endpoint's open route.
+  const visibilityOptions = useMemo(() => {
+    if (!selectedEndpoint) return [];
+    const options = visibilityUrlOptions(selectedEndpoint, access.gatewayUrl);
+    return IS_CLOUD && !access.gatewayUrl ? options.filter((o) => o.key !== 'public') : options;
+  }, [selectedEndpoint, access.gatewayUrl]);
   const [selectedVisibilityKey, setSelectedVisibilityKey] = useState('');
   const selectedVisibility = visibilityOptions.find((v) => v.key === selectedVisibilityKey) ?? visibilityOptions[0] ?? null;
   const invokeUrl = selectedVisibility?.url ?? '';
   const testable = !!selectedVisibility && isBrowserReachable(selectedVisibility.key);
 
   // Security header / test key
-  // securityHeaderRef is read inside SwaggerUI's requestInterceptor to avoid stale closures.
+  // Both are read inside SwaggerUI's requestInterceptor to avoid stale closures.
   const securityHeaderRef = useRef('');
+  const testKeyHeaderRef = useRef(testKeyHeader);
+  testKeyHeaderRef.current = testKeyHeader;
   const [securityHeader, setSecurityHeader] = useState('');
   const updateSecurityHeader = (value: string) => {
     securityHeaderRef.current = value;
     setSecurityHeader(value);
   };
   const [showKey, setShowKey] = useState(false);
-  const [fetchingKey, setFetchingKey] = useState(false);
-  const [keyError, setKeyError] = useState<string | null>(null);
+  const [apimFetching, setApimFetching] = useState(false);
+  const [apimKeyError, setApimKeyError] = useState<string | null>(null);
   const [keyCopied, setKeyCopied] = useState(false);
   const [urlCopied, setUrlCopied] = useState(false);
 
   const generateKeyMutation = useGenerateTestKey();
+  // Not offered for an open endpoint: the BFF's test-key route switches enforcement to api-key,
+  // so minting one would secure an endpoint the user deliberately left open.
+  const canGetTestKey = IS_CLOUD ? !!testKeyEndpointRef && (access.mode === 'api-key' || access.mode === 'jwt') : !!selectedEndpoint?.apimId;
+  const fetchingKey = IS_CLOUD ? access.isMinting : apimFetching;
+  const unavailableNotice = endpointLoadNotice(access.securityError, {
+    notExposed: 'This endpoint isn’t exposed as an API yet, so there is no gateway URL to test against. Set its visibility to Public and deploy, then come back.',
+    unavailable: 'API testing isn’t available in this environment.',
+    readFailed: 'Could not read this endpoint’s security configuration.',
+  });
+  const keyError = IS_CLOUD ? access.keyError : apimKeyError;
 
-  // testKeyEndpointRef is defined above (it also drives the gateway invoke URL via useEndpointSecurity).
-  const endpointTestKeyMutation = useCreateEndpointTestKey(testKeyEndpointRef);
-  const canGetTestKey = IS_CLOUD ? !!testKeyEndpointRef : !!selectedEndpoint?.apimId;
+  // Cleared, not just replaced: the hook keys a minted key to its endpoint, so selecting one with
+  // no key must not leave the previous endpoint's credential in the field.
+  useEffect(() => {
+    if (IS_CLOUD) updateSecurityHeader(access.apiKey ?? '');
+  }, [access.apiKey]);
 
   const handleGetTestKey = async () => {
     if (!canGetTestKey) return;
-    setFetchingKey(true);
-    setKeyError(null);
+    if (IS_CLOUD) {
+      const key = await access.mintKey();
+      if (key) updateSecurityHeader(key);
+      return;
+    }
+    setApimFetching(true);
+    setApimKeyError(null);
     try {
-      const key = IS_CLOUD ? (await endpointTestKeyMutation.mutateAsync()).apiKey : (await generateKeyMutation.mutateAsync({ apimId: selectedEndpoint!.apimId!, keyType: selectedEnv?.critical ? 'Production' : 'Development' }))?.apikey;
+      const key = (await generateKeyMutation.mutateAsync({ apimId: selectedEndpoint!.apimId!, keyType: selectedEnv?.critical ? 'Production' : 'Development' }))?.apikey;
       if (key) {
         updateSecurityHeader(key);
       } else {
-        setKeyError('No test key available. Please check your permissions.');
+        setApimKeyError('No test key available. Please check your permissions.');
       }
-    } catch (err) {
-      setKeyError(IS_CLOUD ? friendlyApiError(err, 'Could not mint a test key.') : 'Failed to fetch test key.');
+    } catch {
+      setApimKeyError('Failed to fetch test key.');
     } finally {
-      setFetchingKey(false);
+      setApimFetching(false);
     }
   };
 
@@ -287,7 +305,7 @@ export default function TestConsole(scope: ComponentScope): JSX.Element {
                     <Typography variant="body2" sx={{ minWidth: 140, fontWeight: 500, color: 'text.secondary', pt: 1 }}>
                       Security Header
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 400 }}>
-                        {TEST_KEY_HEADER}
+                        {testKeyHeader}
                       </Typography>
                     </Typography>
                     <Stack direction="column" gap={0.5} sx={{ flex: 1 }}>
@@ -349,6 +367,9 @@ export default function TestConsole(scope: ComponentScope): JSX.Element {
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                 <CircularProgress />
               </Box>
+            ) : IS_CLOUD && access.isUnavailable ? (
+              // 409 is a state ("not exposed yet"); any other status is a read that failed and may succeed on a retry.
+              <Alert severity={unavailableNotice?.severity ?? 'info'}>{unavailableNotice?.text ?? 'This endpoint is not exposed on the API Platform gateway yet, so it cannot be tested from here.'}</Alert>
             ) : !testable && selectedVisibility ? (
               <Alert severity="info">{selectedVisibility.label} endpoints are not publicly accessible.</Alert>
             ) : swaggerWithServer ? (
@@ -371,7 +392,7 @@ export default function TestConsole(scope: ComponentScope): JSX.Element {
                     docExpansion="list"
                     requestInterceptor={(request) => {
                       if (securityHeaderRef.current) {
-                        request.headers[TEST_KEY_HEADER] = securityHeaderRef.current;
+                        request.headers[testKeyHeaderRef.current] = securityHeaderRef.current;
                       }
                       return request;
                     }}
