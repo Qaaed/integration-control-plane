@@ -130,13 +130,16 @@ export default function TestConsole(scope: ComponentScope): JSX.Element {
   const [urlCopied, setUrlCopied] = useState(false);
 
   const generateKeyMutation = useGenerateTestKey();
-  const canGetTestKey = IS_CLOUD ? !!testKeyEndpointRef : !!selectedEndpoint?.apimId;
+  // Not offered for an open endpoint: the BFF's test-key route switches enforcement to api-key,
+  // so minting one would secure an endpoint the user deliberately left open.
+  const canGetTestKey = IS_CLOUD ? !!testKeyEndpointRef && (access.mode === 'api-key' || access.mode === 'jwt') : !!selectedEndpoint?.apimId;
   const fetchingKey = IS_CLOUD ? access.isMinting : apimFetching;
   const keyError = IS_CLOUD ? access.keyError : apimKeyError;
 
-  // Assigned, not merged: switching endpoint must replace the previous endpoint's key.
+  // Cleared, not just replaced: the hook keys a minted key to its endpoint, so selecting one with
+  // no key must not leave the previous endpoint's credential in the field.
   useEffect(() => {
-    if (IS_CLOUD && access.apiKey) updateSecurityHeader(access.apiKey);
+    if (IS_CLOUD) updateSecurityHeader(access.apiKey ?? '');
   }, [access.apiKey]);
 
   const handleGetTestKey = async () => {
