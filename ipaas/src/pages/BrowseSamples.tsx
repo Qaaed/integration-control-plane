@@ -32,6 +32,7 @@ import { resourceUrl, narrow, newComponentUrl, type ProjectScope } from '../nav'
 import type { Sample } from '../types/samples';
 import { toHandler } from '../utils/string';
 import { useProjectId } from '../hooks/useProjects';
+import { MI_SAMPLES_ENABLED } from '../features';
 
 export default function BrowseSamples(scope: ProjectScope): JSX.Element {
   const navigate = useAppNavigate();
@@ -189,9 +190,13 @@ export default function BrowseSamples(scope: ProjectScope): JSX.Element {
 
           <Box sx={{ borderTop: '1px solid', borderColor: 'divider', my: 1 }} />
 
-          <FilterSection title="Technology" items={uniqueBuildPacks} selected={selectedBuildPacks} onToggle={toggleFilter(setSelectedBuildPacks)} labelFn={formatBuildPack} />
+          {MI_SAMPLES_ENABLED && (
+            <>
+              <FilterSection title="Technology" items={uniqueBuildPacks} selected={selectedBuildPacks} onToggle={toggleFilter(setSelectedBuildPacks)} labelFn={formatBuildPack} />
 
-          <Box sx={{ borderTop: '1px solid', borderColor: 'divider', my: 1 }} />
+              <Box sx={{ borderTop: '1px solid', borderColor: 'divider', my: 1 }} />
+            </>
+          )}
 
           <FilterSection title="Tags" items={uniqueTags} selected={selectedTags} onToggle={toggleFilter(setSelectedTags)} />
         </Box>

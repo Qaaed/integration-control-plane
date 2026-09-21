@@ -28,3 +28,5 @@
 export const IS_WIP = __PRODUCT__ === 'wip'; // Choreo v2 / preview-dv
 export const IS_CLOUD = __PRODUCT__ === 'cloud'; // Choreo v3 / cloud
 export const IS_ICP = __PRODUCT__ === 'icp'; // Local / ICP desktop
+
+export const MI_SAMPLES_ENABLED = !IS_CLOUD;

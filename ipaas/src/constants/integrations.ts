@@ -66,6 +66,7 @@ export const SUPPORTED_DISPLAY_TYPES = new Set([
  */
 /** Buildpack of a component built by neither the Ballerina nor the MI runtime. */
 export const OTHER_BUILDPACK = 'other';
+export const MI_BUILDPACK = 'wso2-mi';
 
 // buildpackType is cloud-only; absent means unknown, so the displayType verdict stands.
 export function isSupportedIntegration(displayType: string, componentSubType: string | null, buildpackType?: string): boolean {
@@ -177,7 +178,7 @@ export function formatComponentType(type: string): string {
 }
 
 export function displayTypeFromSample(componentType: string, buildPack: string): DisplayType {
-  const isMI = buildPack === 'wso2-mi';
+  const isMI = buildPack === MI_BUILDPACK;
   switch (componentType) {
     case 'service':
       return isMI ? 'miApiService' : 'ballerinaService';
@@ -212,7 +213,7 @@ export function displayTypeFromSample(componentType: string, buildPack: string):
  */
 export function componentSubTypeFromSample(componentType: string, buildPack: string): string | undefined {
   if (componentType === 'file-integration') {
-    return buildPack === 'wso2-mi' ? 'miFileIntegration' : 'ballerinaFileIntegration';
+    return buildPack === MI_BUILDPACK ? 'miFileIntegration' : 'ballerinaFileIntegration';
   }
   // Webhooks build on the shared service runtime, so the subtype is what carries
   // the webhook identity through to the Component annotation.
