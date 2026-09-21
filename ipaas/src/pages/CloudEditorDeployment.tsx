@@ -246,35 +246,6 @@ export default function CloudEditorDeployment(): JSX.Element {
         Your Cloud Editor instance is currently being created.
       </Typography>
       <DeploymentWheel steps={CLOUD_EDITOR_STEPS} activeIndex={activeIndex} />
-      {slowNotice && !stalled && (
-        <Typography variant="body2" color="text.secondary" textAlign="center">
-          First-time setup downloads the editor image and can take a few minutes. Please keep this tab open.
-        </Typography>
-      )}
-      {stalled && (
-        <Alert severity="warning" sx={{ maxWidth: 560, width: '100%' }}>
-          <Typography variant="body2">
-            Your Cloud Editor is still not responding. It may still be starting — try the address below, or
-            close this tab and open the editor again later. Contact support if it keeps happening.
-          </Typography>
-        </Alert>
-      )}
-      {awaitingReady && instance && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, maxWidth: 560 }}>
-          <Typography variant="body2" color="text.secondary" textAlign="center">
-            Your editor will be at this address:
-          </Typography>
-          <Typography variant="body2" fontFamily="monospace" textAlign="center" sx={{ wordBreak: 'break-all' }}>
-            {displayableEditorUrl(instance.url)}
-          </Typography>
-          <Button variant="text" size="small" onClick={() => redirect(instance.url)}>
-            Open editor anyway
-          </Button>
-          <Typography variant="caption" color="text.secondary" textAlign="center">
-            It may show a gateway error until the editor finishes starting — refresh if it does.
-          </Typography>
-        </Box>
-      )}
     </Box>
   );
 }
