@@ -64,6 +64,9 @@ export function useMcpConnection({ url, token, headerName }: UseMcpConnectionPar
   const [serverCapabilities, setServerCapabilities] = useState<ServerCapabilities | null>(null);
   const [history, setHistory] = useState<McpHistoryEvent[]>([]);
   const clientRef = useRef<Client | null>(null);
+  // Bumped by every connect, disconnect and unmount: a retry loop runs for tens of seconds, so
+  // an attempt checks it is still the current one before publishing a client or an error.
+  const generationRef = useRef(0);
 
   const addHistoryEvent = useCallback((type: McpHistoryEventType, source: string, message: string, details?: unknown) => {
     setHistory((prev) => [{ type, timestamp: new Date().toISOString(), source, message, details }, ...prev]);
@@ -72,6 +75,7 @@ export function useMcpConnection({ url, token, headerName }: UseMcpConnectionPar
   const clearHistory = useCallback(() => setHistory([]), []);
 
   const disconnect = useCallback(async () => {
+    generationRef.current += 1;
     const client = clientRef.current;
     clientRef.current = null;
     setStatus('disconnected');
@@ -84,30 +88,40 @@ export function useMcpConnection({ url, token, headerName }: UseMcpConnectionPar
 
   const connect = useCallback(async () => {
     if (!url || !token) return;
+    const generation = (generationRef.current += 1);
+    const isStale = () => generation !== generationRef.current;
     await clientRef.current?.close().catch(() => undefined);
     clientRef.current = null;
     setStatus('connecting');
     setError(null);
     setErrorKind(null);
-    const endpoint = new URL(url);
-    if (!endpoint.searchParams.has('transportType')) endpoint.searchParams.set('transportType', 'streamable-http');
 
     for (let attempt = 1; ; attempt += 1) {
+      let client: Client | null = null;
       try {
+        const endpoint = new URL(url);
+        if (!endpoint.searchParams.has('transportType')) endpoint.searchParams.set('transportType', 'streamable-http');
         const transport = new StreamableHTTPClientTransport(endpoint, { requestInit: { headers: { [headerName]: token } } });
-        const client = new Client({ name: 'wip-mcp-playground', version: '1.0.0' }, { capabilities: {} });
+        client = new Client({ name: 'wip-mcp-playground', version: '1.0.0' }, { capabilities: {} });
         await client.connect(transport);
+        if (isStale()) {
+          await client.close().catch(() => undefined);
+          return;
+        }
         clientRef.current = client;
         setServerCapabilities(client.getServerCapabilities() ?? null);
         setStatus('connected');
         addHistoryEvent('info', 'connect', 'Connected to MCP server', { url });
         return;
       } catch (err) {
+        await client?.close().catch(() => undefined);
+        if (isStale()) return;
         // Blocked counts as pending too: a 401 carrying no CORS headers reaches us as a network error.
         const pending = isMcpUnauthorizedError(err) || isMcpBlockedError(err);
         if (pending && attempt < KEY_ACTIVATION_ATTEMPTS) {
           if (attempt === 1) addHistoryEvent('info', 'connect', 'Test key not active on the gateway yet — retrying');
           await new Promise((resolve) => setTimeout(resolve, KEY_ACTIVATION_DELAY_MS));
+          if (isStale()) return;
           continue;
         }
         const message = formatMcpError(err);
@@ -170,6 +184,7 @@ export function useMcpConnection({ url, token, headerName }: UseMcpConnectionPar
   // transport doesn't leak. Runs on unmount only — no state changes here.
   useEffect(
     () => () => {
+      generationRef.current += 1;
       void clientRef.current?.close().catch(() => undefined);
       clientRef.current = null;
     },
