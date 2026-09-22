@@ -18,7 +18,7 @@
 
 import { Divider, Stack, Typography } from '@wso2/oxygen-ui';
 import { Sparkles } from '@wso2/oxygen-ui-icons-react';
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { IS_CLOUD } from '../../../features';
 import { useEndpointSecurity } from '../../../hooks/useConsumers';
 import { useEnvEndpoints } from '../../../hooks/useDeployments';
@@ -38,6 +38,12 @@ export default function EnvCardBody({ component, env, versionId, releaseId, hasD
   // integration-as-api card does.
   const securityRef = IS_CLOUD && selectedEndpoint ? { componentName: component.id, environmentName: env.id, endpointName: selectedEndpoint.id } : null;
   const { data: apiSecurity } = useEndpointSecurity(securityRef, IS_CLOUD && !!selectedEndpoint);
+
+  // The panel must never fall back to the raw OpenChoreo route for an agent — it's a second front
+  // door with no API key or gateway policy, so it's suppressed even before apiSecurity resolves.
+  // AgentChat.tsx keys off the same publicUrl field via its own useEnvEndpoints call to detect a
+  // reachable endpoint at all, so that field is left untouched everywhere except this local copy.
+  const endpointsForPanel = useMemo(() => endpoints.map((e) => ({ ...e, publicUrl: null, defaultPublicUrl: null, invokeUrl: null })), [endpoints]);
 
   if (!hasDeployment) {
     return (
@@ -62,7 +68,7 @@ export default function EnvCardBody({ component, env, versionId, releaseId, hasD
   return (
     <>
       <Divider sx={{ my: 2 }} />
-      {showEndpoints && <EndpointUrlsPanel endpoints={endpoints} selectedIdx={selectedEpIdx} onSelect={setSelectedEpIdx} componentId={component.id} deploymentTrackId={versionId} externalUrlOverride={apiSecurity?.publicUrl || undefined} />}
+      {showEndpoints && <EndpointUrlsPanel endpoints={endpointsForPanel} selectedIdx={selectedEpIdx} onSelect={setSelectedEpIdx} componentId={component.id} deploymentTrackId={versionId} externalUrlOverride={apiSecurity?.publicUrl || undefined} />}
       <AgentChat componentId={component.id} versionId={versionId} releaseId={releaseId} environmentName={env.id} envCritical={!!env.critical} />
     </>
   );
