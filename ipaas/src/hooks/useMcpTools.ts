@@ -18,7 +18,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport, StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { KEY_ACTIVATION_ATTEMPTS, KEY_ACTIVATION_DELAY_MS } from '../constants/mcp';
+import { isMcpBlockedError, isMcpForbiddenError, isMcpUnauthorizedError } from '../utils/mcp';
 import type { McpTool } from '../types/mcp';
 
 /** APIM gateways read the test key from this header; cloud uses the api-key-auth header. */
@@ -67,36 +69,48 @@ export function useMcpTools({ baseUrl, apiKey, authHeader = DEFAULT_AUTH_HEADER,
   useEffect(() => {
     if (!enabled || !baseUrl) return undefined;
     let cancelled = false;
-    let client: Client | null = null;
+
+    const listOnce = async (): Promise<McpTool[]> => {
+      const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl.replace(/\/+$/, '')}/mcp?transportType=streamable-http`), {
+        requestInit: { headers: apiKey ? { [authHeader]: apiKey } : {} },
+      });
+      const client = new Client({ name: 'wip', version: '1.0.0' }, { capabilities: {} });
+      try {
+        await client.connect(transport);
+        if (!client.getServerCapabilities()?.tools) throw new Error('MCP server does not support the tools capability');
+        const response = await client.listTools();
+        return Array.isArray(response.tools) ? (response.tools as McpTool[]) : [];
+      } finally {
+        client.close().catch(() => {});
+      }
+    };
 
     (async () => {
       setIsLoading(true);
       setError(null);
       setIsForbidden(false);
       setIsUnauthorized(false);
-      try {
-        const transport = new StreamableHTTPClientTransport(new URL(`${baseUrl.replace(/\/+$/, '')}/mcp?transportType=streamable-http`), {
-          requestInit: { headers: apiKey ? { [authHeader]: apiKey } : {} },
-        });
-        client = new Client({ name: 'wip', version: '1.0.0' }, { capabilities: {} });
-        await client.connect(transport);
-        if (!client.getServerCapabilities()?.tools) throw new Error('MCP server does not support the tools capability');
-        const response = await client.listTools();
-        if (!cancelled) setTools(Array.isArray(response.tools) ? (response.tools as McpTool[]) : []);
-      } catch (err) {
-        if (cancelled) return;
-        const msg = err instanceof Error ? err.message : 'Failed to load tools';
-        // Prefer the transport's structured status code; fall back to message
-        // matching only when the error isn't a typed StreamableHTTPError.
-        const unauthorized = err instanceof StreamableHTTPError ? err.code === 401 : /\b401\b|unauthor/i.test(msg);
-        const forbidden = unauthorized || (err instanceof StreamableHTTPError ? err.code === 403 : /\b403\b|forbidden/i.test(msg));
-        if (forbidden) setIsForbidden(true);
-        if (unauthorized) setIsUnauthorized(true);
-        setError(msg);
-      } finally {
-        if (!cancelled) setIsLoading(false);
-        client?.close().catch(() => {});
+
+      for (let attempt = 1; !cancelled; attempt += 1) {
+        try {
+          const tools = await listOnce();
+          if (!cancelled) setTools(tools);
+          break;
+        } catch (err) {
+          if (cancelled) break;
+          // Blocked counts as pending too: a 401 carrying no CORS headers reaches us as a network error.
+          const pending = !!apiKey && (isMcpUnauthorizedError(err) || isMcpBlockedError(err));
+          if (pending && attempt < KEY_ACTIVATION_ATTEMPTS) {
+            await new Promise((resolve) => setTimeout(resolve, KEY_ACTIVATION_DELAY_MS));
+            continue;
+          }
+          setError(err instanceof Error ? err.message : 'Failed to load tools');
+          if (isMcpForbiddenError(err)) setIsForbidden(true);
+          if (isMcpUnauthorizedError(err)) setIsUnauthorized(true);
+          break;
+        }
       }
+      if (!cancelled) setIsLoading(false);
     })();
 
     return () => {
