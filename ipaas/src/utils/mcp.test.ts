@@ -18,7 +18,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { classifyMcpError, coerceFieldValue, formatFieldLabel, formatMcpError, formatToolResult, generateDefaultValue, getMcpToolParameters, isMcpBlockedError, isMcpForbiddenError, isSimpleObjectSchema } from './mcp';
+import { classifyMcpError, coerceFieldValue, formatFieldLabel, formatMcpError, formatToolResult, generateDefaultValue, getMcpToolParameters, isMcpBlockedError, isMcpForbiddenError, isMcpUnauthorizedError, isSimpleObjectSchema } from './mcp';
 import type { McpTool } from '../types/mcp';
 
 describe('getMcpToolParameters', () => {
@@ -149,5 +149,14 @@ describe('classifyMcpError', () => {
     expect(classifyMcpError(new StreamableHTTPError(401, 'nope'))).toBe('auth');
     expect(classifyMcpError(new TypeError('Failed to fetch'))).toBe('blocked');
     expect(classifyMcpError(new Error('connection refused'))).toBe('other');
+  });
+});
+
+describe('isMcpUnauthorizedError', () => {
+  it('is 401 only, so a 403 is not treated as a credential problem', () => {
+    expect(isMcpUnauthorizedError(new StreamableHTTPError(401, 'nope'))).toBe(true);
+    expect(isMcpUnauthorizedError(new StreamableHTTPError(403, 'nope'))).toBe(false);
+    expect(isMcpUnauthorizedError(new Error('HTTP 403: forbidden'))).toBe(false);
+    expect(isMcpUnauthorizedError(new Error('unauthorized'))).toBe(true);
   });
 });

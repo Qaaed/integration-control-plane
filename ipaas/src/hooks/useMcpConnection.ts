@@ -20,7 +20,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { ServerCapabilities } from '@modelcontextprotocol/sdk/types.js';
-import { classifyMcpError, formatMcpError, formatToolResult } from '../utils/mcp';
+import { KEY_ACTIVATION_ATTEMPTS, KEY_ACTIVATION_DELAY_MS } from '../constants/mcp';
+import { classifyMcpError, formatMcpError, formatToolResult, isMcpBlockedError, isMcpUnauthorizedError } from '../utils/mcp';
 import type { JsonValue, McpConnectionStatus, McpErrorKind, McpHistoryEvent, McpHistoryEventType, McpPingResult, McpTool, McpToolResult } from '../types/mcp';
 
 /** Per-request timeout, matching the playground library. */
@@ -88,22 +89,34 @@ export function useMcpConnection({ url, token, headerName }: UseMcpConnectionPar
     setStatus('connecting');
     setError(null);
     setErrorKind(null);
-    try {
-      const endpoint = new URL(url);
-      if (!endpoint.searchParams.has('transportType')) endpoint.searchParams.set('transportType', 'streamable-http');
-      const transport = new StreamableHTTPClientTransport(endpoint, { requestInit: { headers: { [headerName]: token } } });
-      const client = new Client({ name: 'wip-mcp-playground', version: '1.0.0' }, { capabilities: {} });
-      await client.connect(transport);
-      clientRef.current = client;
-      setServerCapabilities(client.getServerCapabilities() ?? null);
-      setStatus('connected');
-      addHistoryEvent('info', 'connect', 'Connected to MCP server', { url });
-    } catch (err) {
-      const message = formatMcpError(err);
-      setStatus('error');
-      setError(message);
-      setErrorKind(classifyMcpError(err));
-      addHistoryEvent('error', 'connect', message);
+    const endpoint = new URL(url);
+    if (!endpoint.searchParams.has('transportType')) endpoint.searchParams.set('transportType', 'streamable-http');
+
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        const transport = new StreamableHTTPClientTransport(endpoint, { requestInit: { headers: { [headerName]: token } } });
+        const client = new Client({ name: 'wip-mcp-playground', version: '1.0.0' }, { capabilities: {} });
+        await client.connect(transport);
+        clientRef.current = client;
+        setServerCapabilities(client.getServerCapabilities() ?? null);
+        setStatus('connected');
+        addHistoryEvent('info', 'connect', 'Connected to MCP server', { url });
+        return;
+      } catch (err) {
+        // Blocked counts as pending too: a 401 carrying no CORS headers reaches us as a network error.
+        const pending = isMcpUnauthorizedError(err) || isMcpBlockedError(err);
+        if (pending && attempt < KEY_ACTIVATION_ATTEMPTS) {
+          if (attempt === 1) addHistoryEvent('info', 'connect', 'Test key not active on the gateway yet — retrying');
+          await new Promise((resolve) => setTimeout(resolve, KEY_ACTIVATION_DELAY_MS));
+          continue;
+        }
+        const message = formatMcpError(err);
+        setStatus('error');
+        setError(message);
+        setErrorKind(classifyMcpError(err));
+        addHistoryEvent('error', 'connect', message);
+        return;
+      }
     }
   }, [url, token, headerName, addHistoryEvent]);
 

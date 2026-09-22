@@ -25,6 +25,12 @@ export function isMcpForbiddenError(error: unknown): boolean {
   return /\b(401|403)\b|forbidden|unauthor/i.test(error instanceof Error ? error.message : String(error));
 }
 
+/** 401 only: the credential was rejected, so a fresh or newly-activated one can help — a 403 cannot. */
+export function isMcpUnauthorizedError(error: unknown): boolean {
+  if (error instanceof StreamableHTTPError) return error.code === 401;
+  return /\b401\b|unauthor/i.test(error instanceof Error ? error.message : String(error));
+}
+
 /** A request the browser refused to hand over — a rejection without CORS headers reads as this, not as its status. */
 export function isMcpBlockedError(error: unknown): boolean {
   if (error instanceof StreamableHTTPError) return false;
