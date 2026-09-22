@@ -114,12 +114,18 @@ export function useEndpointTestAccess(ref: EndpointRef | null | undefined, enabl
 
   // Auto-mint for an api-key-secured endpoint. `jwt` is deliberately excluded:
   // minting would silently flip the endpoint's enforcement to api-key auth.
+  const mintingFor = useRef<string | null>(null);
   useEffect(() => {
     if (!enabled || mode !== 'api-key') return;
     // Holding a key already is enough: this effect re-runs whenever the endpoint's queries
     // refetch, and minting again there would reap the key the surfaces are using.
     if (minted?.refKey === refKey && minted.key) return;
-    void mintKey();
+    // The held key only appears once the request lands, so an in-flight mint needs its own guard.
+    if (mintingFor.current === refKey) return;
+    mintingFor.current = refKey;
+    void mintKey().finally(() => {
+      if (mintingFor.current === refKey) mintingFor.current = null;
+    });
   }, [enabled, mode, mintKey, minted, refKey]);
 
   // One re-mint per endpoint: a fresh key 401s the same way when the cause is not the key,
