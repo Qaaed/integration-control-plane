@@ -24,6 +24,7 @@ import { useAuth } from '../auth/AuthContext';
 // ButtonBase, Stack (below) and ArrowRight, Settings, Users (icons) are only used by the
 // persona-selection step, which is commented out below — restore these imports alongside it.
 import { Alert, Box, Button, Card, CardContent, CircularProgress, FormControl, MenuItem, Select, Typography } from '@wso2/oxygen-ui';
+import ProjectCardListSkeleton from '../components/ProjectCardListSkeleton';
 import { useOrgUuid } from '../hooks/useOrgUuid';
 import { useCreateDefaultProject, useFetchProjectsByOrgId, useInitOrg } from '../hooks/useOrg';
 import { useCreateProject } from '../hooks/useProjects';
@@ -164,11 +165,7 @@ export default function OrgHome(): JSX.Element {
   }, [step, orgNumericId, fetchProjects, navigate, orgHandler]);
 
   if (step === 'checking') {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', bgcolor: 'background.default' }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <ProjectCardListSkeleton />;
   }
 
   if (step === 'provisioning-error') {

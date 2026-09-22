@@ -52,6 +52,7 @@ import {
   Tooltip,
   Typography,
 } from '@wso2/oxygen-ui';
+import ProjectHomeSkeleton from '../components/ProjectHomeSkeleton';
 import { ChevronDown, ChevronUp, Cloud, ExternalLink, FileText, Filter, GitHub, GitBranch, Info, Link2, Pencil, Plus, PlugZap, RefreshCw, Search, Trash2 } from '@wso2/oxygen-ui-icons-react';
 import CreateIntegrationPanels from '../components/CreateIntegrationPanels';
 import EmptyListing from '../components/EmptyListing';
@@ -696,11 +697,7 @@ export default function Project(scope: ProjectScope): JSX.Element {
   }, [project?.description]);
 
   if (loadingProject) {
-    return (
-      <Box sx={{ display: 'flex', minHeight: '100%', justifyContent: 'center', alignItems: 'center' }}>
-        <CircularProgress color="primary" />
-      </Box>
-    );
+    return <ProjectHomeSkeleton />;
   }
   if (!project) {
     return <NotFound message="Project not found" backTo={resourceUrl(broaden(scope)!, 'overview')} backLabel="Back to Projects" />;

@@ -78,6 +78,8 @@ export default function AgentChat({ componentId, versionId, releaseId, environme
   // operations come from the spec rather than from an APIM API record.
   const { data: chatSpec } = useApiDefinition(IS_CLOUD ? candidate?.apimRevisionId : null);
   const hasChatOperation = IS_CLOUD ? !!(chatSpec as { paths?: Record<string, unknown> } | null)?.paths?.['/chat'] : (apimApi?.operations?.some((op) => op.target === '/chat') ?? false);
+  // An agent publishes no OpenAPI spec, so a missing `/chat` is unknown rather than absent.
+  const operationsKnown = IS_CLOUD ? !!chatSpec : !!apimApi?.operations;
 
   // Cloud invokes the apip gateway and nothing else. The endpoint's own external
   // route is open (the policy engine is not in its path), so falling back to it
@@ -220,6 +222,10 @@ export default function AgentChat({ componentId, versionId, releaseId, environme
   // generic "no endpoint", which would send the user looking in the wrong place.
   const notExposed = IS_CLOUD && !!candidate && access.isUnavailable;
   const noEndpoint = endpoints.length > 0 && !chatUrl && !notExposed;
+  // Passes the gateway's own reason through rather than replacing it with a generic line.
+  const authNotice = IS_CLOUD
+    ? `Chat can’t authenticate with this agent: issuing a test key failed.${access.keyError ? ` ${access.keyError}` : ''}`
+    : 'Chat can’t authenticate with this agent: issuing a test key failed. Check that you have permission to generate API keys for it, then try again.';
   const isPage = variant === 'page';
 
   return (
@@ -229,13 +235,7 @@ export default function AgentChat({ componentId, versionId, releaseId, environme
           {chatError}
         </Alert>
       )}
-      {authError && (
-        <Alert severity="info">
-          {IS_CLOUD
-            ? 'This agent can’t be chat-tested right now — test-key access to the gateway is unavailable.'
-            : 'Could not authenticate with the agent. Check your permissions and try again.'}
-        </Alert>
-      )}
+      {authError && <Alert severity="warning">{authNotice}</Alert>}
       {noEndpoint && <Alert severity="info">No chat endpoint found for this agent.</Alert>}
       {notExposed && <Alert severity="info">This agent can&apos;t be chat-tested right now &mdash; its endpoint hasn&apos;t registered on the API gateway. Redeploy the agent, or check that its endpoint is exposed as an API.</Alert>}
       {needsManualKey && (
@@ -249,7 +249,7 @@ export default function AgentChat({ componentId, versionId, releaseId, environme
           This agent is secured with OAuth. Chatting here needs a test key, which switches the endpoint to API Key authentication.
         </Alert>
       )}
-      {!noEndpoint && !hasChatOperation && chatUrl && messages.length === 0 && (
+      {isPage && operationsKnown && !noEndpoint && !hasChatOperation && chatUrl && messages.length === 0 && (
         <Typography variant="caption" color="text.secondary">
           No <code>/chat</code> operation was detected on this agent — messages are sent to <code>{chatUrl}/chat</code>.
         </Typography>

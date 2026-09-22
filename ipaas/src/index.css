@@ -11,6 +11,21 @@
 html,
 body {
   height: 100%;
+  /* Painted before the bundle runs. Without it the first frame is the browser's own
+     canvas, which `color-scheme: light dark` paints black on a dark OS. */
+  background-color: #f7f8fb;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-color-scheme='light']),
+  html:not([data-color-scheme='light']) body {
+    background-color: #0d0d14;
+  }
+}
+
+html[data-color-scheme='dark'],
+html[data-color-scheme='dark'] body {
+  background-color: #0d0d14;
 }
 
 /* The AppShell renders the main-content scroll box as the first <div> child

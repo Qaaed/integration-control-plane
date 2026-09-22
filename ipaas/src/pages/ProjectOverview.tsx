@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { Alert, Avatar, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, PageContent, Stack, TextField, Tooltip, Typography } from '@wso2/oxygen-ui';
+import { Alert, Avatar, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, PageContent, Skeleton, Stack, TextField, Tooltip, Typography } from '@wso2/oxygen-ui';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { useAppNavigate } from '../hooks/useAppNavigate';
 import Authorized from '../components/Authorized';
@@ -168,9 +168,13 @@ export default function ProjectOverview({ org, project }: ProjectScope): JSX.Ele
     <PageContent>
       <ProjectSettingsTabs active="project-overview" />
       {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 'calc(100vh - 120px)' }}>
-          <CircularProgress />
-        </Box>
+        <Stack gap={3} sx={{ maxWidth: 640 }} aria-busy="true" aria-label="Loading project settings">
+          <Stack direction="row" gap={2}>
+            <Skeleton variant="rounded" height={56} sx={{ flex: 1 }} />
+            <Skeleton variant="rounded" height={56} sx={{ flex: 1 }} />
+          </Stack>
+          <Skeleton variant="rounded" height={56} />
+        </Stack>
       ) : !data ? (
         <Typography>Project not found</Typography>
       ) : (

@@ -16,27 +16,27 @@
  * under the License.
  */
 
-import type { Theme } from '@wso2/oxygen-ui';
+import { BAR_HEIGHT } from './NavigationProgress.styles';
 
-/**
- * Fixed to the viewport, not the layout: public pages (login, policies) have no
- * header to anchor to. Above `tooltip` so a navigation started from a dialog is
- * still visible, and click-through so it can never swallow an interaction.
- */
-/** Shared with PageLoader, so the two progress bars stay the same weight. */
-export const BAR_HEIGHT = 3;
+export const frame = (viewport: boolean) =>
+  ({
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 1.5,
+    width: '100%',
+    // A viewport loader owns the window (sign-in, callbacks); inside a layout the
+    // loader fills whatever the page area gives it.
+    minHeight: viewport ? '100vh' : 240,
+    flex: viewport ? undefined : 1,
+    ...(viewport ? { bgcolor: 'background.default' } : {}),
+  }) as const;
 
 export const bar = {
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  right: 0,
+  width: 160,
+  maxWidth: '55%',
   height: BAR_HEIGHT,
-  zIndex: (t: Theme) => t.zIndex.tooltip,
-  pointerEvents: 'none',
-  // A glow to lift the bar off a light background.
-  boxShadow: (t: Theme) => `0 1px 10px ${t.palette.primary.main}`,
-  "html[data-color-scheme='dark'] &": {
-    boxShadow: 'none',
-  },
+  // Pixels, not theme units: a spacing-scale radius rounds a 3px bar into a lozenge.
+  borderRadius: `${BAR_HEIGHT}px`,
 } as const;

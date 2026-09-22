@@ -116,8 +116,11 @@ export function useEndpointTestAccess(ref: EndpointRef | null | undefined, enabl
   // minting would silently flip the endpoint's enforcement to api-key auth.
   useEffect(() => {
     if (!enabled || mode !== 'api-key') return;
+    // Holding a key already is enough: this effect re-runs whenever the endpoint's queries
+    // refetch, and minting again there would reap the key the surfaces are using.
+    if (minted?.refKey === refKey && minted.key) return;
     void mintKey();
-  }, [enabled, mode, mintKey]);
+  }, [enabled, mode, mintKey, minted, refKey]);
 
   // One re-mint per endpoint: a fresh key 401s the same way when the cause is not the key,
   // so retrying per credential would mint without end.
