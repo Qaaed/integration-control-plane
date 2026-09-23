@@ -20,7 +20,8 @@ import { useEffect, useRef, useState } from 'react';
 import { buildEditorCallbackUrl, editorCallbackUri } from '../utils/vscodeCallback';
 import type { JSX } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { Alert, Box, CircularProgress, Typography } from '@wso2/oxygen-ui';
+import { Alert, Box, Typography } from '@wso2/oxygen-ui';
+import PageLoader from '../components/PageLoader';
 import { useAuth } from '../auth/AuthContext';
 import { validateAndClearOIDCState, getAndClearRedirectUrl } from '../auth/tokenManager';
 import { useFetchProjectsByOrgId } from '../hooks/useOrg';
@@ -199,14 +200,5 @@ export default function OIDCCallback(): JSX.Element {
     );
   }
 
-  return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default' }}>
-      <Box sx={{ textAlign: 'center' }}>
-        <CircularProgress sx={{ mb: 2 }} />
-        <Typography variant="body1" color="text.secondary">
-          Completing sign in...
-        </Typography>
-      </Box>
-    </Box>
-  );
+  return <PageLoader viewport label="Completing sign in…" />;
 }

@@ -211,7 +211,7 @@ export default function CreateProject(scope: OrgScope): JSX.Element {
       );
     }
 
-    window.location.href = resourceUrl(narrow(scope, project.handler), 'overview');
+    navigate(resourceUrl(narrow(scope, project.handler), 'overview'));
   };
 
   const renderHandlerHelperText = () => {

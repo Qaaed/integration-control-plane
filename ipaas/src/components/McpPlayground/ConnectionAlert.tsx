@@ -28,7 +28,7 @@ const ERROR_TITLES: Record<McpErrorKind, string> = {
 
 const ERROR_HINTS: Record<'auth' | 'blocked', string> = {
   auth: 'The test key was rejected — it may have expired or been replaced. Get a new key and connect again.',
-  blocked: 'The server answered, but without CORS headers the browser withheld the status. Usually an expired test key, or a CORS policy on the endpoint that does not allow this console.',
+  blocked: 'The browser withheld the response, so its status is unknown. Usually a test key the gateway has not activated yet, a CORS policy that excludes this console, or an API no longer routed on the gateway.',
 };
 
 interface ConnectionAlertProps {

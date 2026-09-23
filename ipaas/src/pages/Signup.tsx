@@ -19,6 +19,7 @@
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { Alert, Box, Button, CircularProgress, ColorSchemeImage, Divider, Grid, Link, Stack, Typography } from '@wso2/oxygen-ui';
+import PageLoader from '../components/PageLoader';
 import { GitHub, Google, Mail } from '@wso2/oxygen-ui-icons-react';
 import { Link as NavLink } from 'react-router';
 import { useAuth } from '../auth/AuthContext';
@@ -99,20 +100,14 @@ export default function Signup(): JSX.Element {
   // Cloud variant renders no in-app sign-up UI — just a spinner while redirecting
   // to Thunder's hosted branded split-screen page.
   if (IS_CLOUD) {
-    return (
-      <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-        {error ? (
+    if (error) {
+      return (
+        <Box sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Alert severity="error">{error}</Alert>
-        ) : (
-          <>
-            <CircularProgress />
-            <Typography variant="body1" color="text.secondary">
-              Redirecting to sign in…
-            </Typography>
-          </>
-        )}
-      </Box>
-    );
+        </Box>
+      );
+    }
+    return <PageLoader viewport label="Redirecting to sign in…" />;
   }
 
   return (
