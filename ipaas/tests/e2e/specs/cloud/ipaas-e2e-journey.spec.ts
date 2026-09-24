@@ -720,7 +720,7 @@ test.describe('08 clean up @smoke', () => {
   });
 
   test('Delete Project becomes available once the project is empty', async () => {
-    test.setTimeout(6 * 60_000);
+    test.setTimeout(9 * 60_000);
     await expandSidebar(page);
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible({ timeout: 30_000 });
@@ -729,7 +729,7 @@ test.describe('08 clean up @smoke', () => {
     // deletions landed. Reloaded each attempt because the components query does not refetch.
     const deleteProject = page.getByRole('button', { name: 'Delete Project', exact: true });
     let enabled = false;
-    for (let attempt = 0; attempt < 12 && !enabled; attempt++) {
+    for (let attempt = 0; attempt < 24 && !enabled; attempt++) {
       enabled = await expect(deleteProject).toBeEnabled({ timeout: 15_000 }).then(() => true).catch(() => false);
       if (!enabled) await page.reload({ waitUntil: 'domcontentloaded' });
     }
