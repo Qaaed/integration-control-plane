@@ -94,20 +94,6 @@ export default function LogsFilters({ filters, environments, logs, logsRequest, 
           </Select>
         )}
 
-        {gatewayControls && (
-          <Select value={kindFilter} onChange={(e) => setKindFilter(e.target.value as GatewayLogKindFilter)} size="small" sx={{ minWidth: 150 }} inputProps={{ 'aria-label': 'Gateway log kind' }}>
-            <MenuItem value="all">All Gateway Logs</MenuItem>
-            <MenuItem value="access">Requests</MenuItem>
-            <MenuItem value="operational">Gateway Activity</MenuItem>
-          </Select>
-        )}
-
-        {gatewayControls && (
-          <Tooltip title="Kubernetes probes the gateway every few seconds, and each probe is logged as a request">
-            <FormControlLabel control={<Checkbox size="small" checked={hideHealthChecks} onChange={(e) => setHideHealthChecks(e.target.checked)} />} label={<Typography sx={{ fontSize: 13 }}>Hide health checks</Typography>} />
-          </Tooltip>
-        )}
-
         {/* Log level filter */}
         <Select
           multiple
@@ -166,6 +152,20 @@ export default function LogsFilters({ filters, environments, logs, logsRequest, 
           <MenuItem value="desc">Newest first</MenuItem>
           <MenuItem value="asc">Oldest first</MenuItem>
         </Select>
+
+        {gatewayControls && (
+          <Select value={kindFilter} onChange={(e) => setKindFilter(e.target.value as GatewayLogKindFilter)} size="small" sx={{ minWidth: 150 }} inputProps={{ 'aria-label': 'Gateway log kind' }}>
+            <MenuItem value="all">All Gateway Logs</MenuItem>
+            <MenuItem value="access">Requests</MenuItem>
+            <MenuItem value="operational">Gateway Activity</MenuItem>
+          </Select>
+        )}
+
+        {gatewayControls && (
+          <Tooltip title="Kubernetes probes the gateway every few seconds, and each probe is logged as a request">
+            <FormControlLabel control={<Checkbox size="small" checked={hideHealthChecks} onChange={(e) => setHideHealthChecks(e.target.checked)} />} label={<Typography sx={{ fontSize: 13 }}>Hide health checks</Typography>} />
+          </Tooltip>
+        )}
 
         {/* Search */}
         <SearchField value={searchPhrase} onChange={setSearchPhrase} placeholder="Search logs..." sx={{ minWidth: 200, flex: 1 }} />
