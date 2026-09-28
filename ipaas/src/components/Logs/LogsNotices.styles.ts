@@ -16,11 +16,5 @@
  * under the License.
  */
 
-// TODO: implement using icp APIs
-const ni = (name: string): never => {
-  throw new Error(`[icp] logs.${name}: not implemented`);
-};
-
-export const fetchLogs = (..._args: unknown[]): never => ni('fetchLogs');
-export const fetchComponentLogs = (..._args: unknown[]): never => ni('fetchComponentLogs');
-export const fetchGatewayLogs = (..._args: unknown[]): never => ni('fetchGatewayLogs');
+/** Spacing between a notice and the panel below it. */
+export const noticeSx = { mb: 1 } as const;

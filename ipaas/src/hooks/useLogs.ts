@@ -19,10 +19,10 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import type { InfiniteData } from '@tanstack/react-query';
-import { fetchLogs, fetchComponentLogs } from '#api/logs';
+import { fetchLogs, fetchComponentLogs, fetchGatewayLogs } from '#api/logs';
 import { IS_CLOUD } from '../features';
 import { filterLogRows, type LogRowFilter } from '../utils/logs';
-import type { LogsRequest, ComponentLogsRequest, LogRow } from '../types/logs';
+import type { LogsRequest, ComponentLogsRequest, GatewayLogsRequest, LogRow } from '../types/logs';
 
 // The cloud log source cannot narrow by level, so leaving levels out of its
 // request keeps the query key — and the pages already loaded — stable while the
@@ -78,6 +78,25 @@ export function useInfiniteComponentLogs(req: ComponentLogsRequest | null, refet
       return lastPage[lastPage.length - 1]?.timestamp;
     },
     enabled: !!query && !!logsApiUrl,
+    refetchInterval,
+  });
+}
+
+/** Paged by narrowing the window from the last row, since the log backend offers no cursor. */
+export function useInfiniteGatewayLogs(req: GatewayLogsRequest | null, refetchInterval: number | false = false) {
+  const query = useMemo(() => sourceRequest(req), [req]);
+  return useInfiniteQuery({
+    queryKey: ['gateway-logs', query],
+    queryFn: async ({ pageParam }) => {
+      const pageReq = pageParam ? { ...query!, ...(query!.sort === 'desc' ? { endTime: pageParam } : { startTime: pageParam }) } : query!;
+      return fetchGatewayLogs(pageReq);
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => {
+      if (!query || lastPage.length < query.limit) return undefined;
+      return lastPage[lastPage.length - 1]?.timestamp;
+    },
+    enabled: !!query,
     refetchInterval,
   });
 }

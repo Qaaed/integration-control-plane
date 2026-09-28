@@ -140,6 +140,7 @@ const Alerts = lazyPage(() => import('../pages/Alerts'));
 const Environments = lazyPage(() => import('../pages/Environments'));
 const CreateEnvironment = lazyPage(() => import('../pages/CreateEnvironment'));
 const EditEnvironment = lazyPage(() => import('../pages/EditEnvironment'));
+const RuntimeLogsOrg = lazyPage(() => import('../pages/RuntimeLogsOrg'));
 const RuntimeLogsProject = lazyPage(() => import('../pages/RuntimeLogsProject'));
 const RuntimeLogsIntegration = lazyPage(() => import('../pages/RuntimeLogsIntegration'));
 const { OrgAccessControl, ProjectAccessControl, ComponentAccessControl } = {
@@ -186,7 +187,7 @@ const MATRIX: Matrix = {
   deploy: { segment: 'deploy', pages: { organizations: OrgDeploy, projects: ProjectDeploy, components: Deploy } },
   // Hidden on cloud; the matrix slot still needs a page, so it redirects.
   alerts: { segment: 'alerts', pages: { components: IS_CLOUD ? HiddenIntegrationPage : Alerts } },
-  logs: { segment: 'logs', pages: { projects: RuntimeLogsProject, components: RuntimeLogsIntegration } },
+  logs: { segment: 'logs', pages: { organizations: RuntimeLogsOrg, projects: RuntimeLogsProject, components: RuntimeLogsIntegration } },
 
   environments: { segment: 'environments', pages: { organizations: Environments, projects: Environments } },
   // Cloud hides org and project Access Control; the matrix slots still need a page, so they redirect.
@@ -233,7 +234,6 @@ const routes: AppRoute[] = [
                 { path: 'organizations/:orgHandler/insights/delivery/configure', element: createElement(withScope(ConfigureDelivery, ['organizations'])) },
                 { path: 'organizations/:orgHandler/insights/compliance', element: createElement(RouteErrorBoundary, null, createElement(withScope(OrgCompliance, ['organizations']))) },
               ]),
-              { path: 'organizations/:orgHandler/logs', element: <ComingSoon description="Runtime logs across the whole organization are on the way. For now, open an integration to read its logs." /> },
               { path: 'organizations/:orgHandler/metrics', element: <ComingSoon description="One view of throughput, latency and errors for every integration you run." /> },
               { path: 'organizations/:orgHandler/rag/scheduled-ingestion', element: createElement(withScope(SetupRagIngestion, ['organizations'])) },
               { path: 'organizations/:orgHandler/rag/service', element: createElement(withScope(SetupRagService, ['organizations'])) },

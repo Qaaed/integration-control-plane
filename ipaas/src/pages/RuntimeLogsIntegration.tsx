@@ -16,20 +16,24 @@
  * under the License.
  */
 
-import { Box, CircularProgress, PageContent } from '@wso2/oxygen-ui';
+import { Box, CircularProgress, PageContent, Stack } from '@wso2/oxygen-ui';
 import { ScrollText } from '@wso2/oxygen-ui-icons-react';
 import { useMemo, type JSX } from 'react';
 import { useOrgs } from '../hooks/useOrg';
 import { useProjectsByOrg } from '../hooks/useProjects';
 import { useComponentByHandler } from '../hooks/useComponents';
 import { useEnvironments, useAllEnvironments } from '../hooks/useEnvironments';
-import { useInfiniteComponentLogs, useVisibleLogs } from '../hooks/useLogs';
-import type { ComponentLogsRequest } from '../types/logs';
+import { useInfiniteComponentLogs, useInfiniteGatewayLogs, useVisibleLogs } from '../hooks/useLogs';
+import { useGatewayLogScope } from '../hooks/useGatewayLogScope';
+import { mergeLogRows } from '../utils/logs';
+import type { ComponentLogsRequest, GatewayLogsRequest } from '../types/logs';
 import { choreologgingComponentLogsApiUrl, choreologgingComponentGatewayLogsApiUrl } from '../config/runtimeConfig';
 import { GENERIC_SERVICE_TYPES } from '../constants/integrations';
+import { GATEWAY_LOG_RETENTION_DAYS } from '../constants/gatewayLogs';
 import { AUTO_FETCH_INTERVAL, DEFAULT_DP_REGION, PAGE_SIZE } from '../utils/logs';
 import LogsFilters from '../components/Logs/LogsFilters';
 import LogsPageLayout from '../components/Logs/LogsPageLayout';
+import LogsNotices from '../components/Logs/LogsNotices';
 import LogsPanel from '../components/Logs/LogsPanel';
 import LogEntry from '../components/Logs/LogEntry';
 import EmptyListing from '../components/EmptyListing';
@@ -86,7 +90,40 @@ export default function RuntimeLogsIntegration(scope: ComponentScope): JSX.Eleme
 
   const { data, isLoading, error, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteComponentLogs(logsRequest, autoFetch ? AUTO_FETCH_INTERVAL : false, logsApiUrl);
 
-  const logs = useVisibleLogs(data, { levels: levelFilter });
+  // The gateway fronts the whole organization, so the endpoint's context path is what narrows its lines.
+  const gateway = useGatewayLogScope(scope.org, orgUuid, component, primaryEnv?.id ?? '');
+  const gatewayRequest = useMemo<GatewayLogsRequest | null>(() => {
+    if (!gateway.available || !primaryEnv) return null;
+    return { environmentId: primaryEnv.id, searchPhrase: gateway.contextPath, logLevels: levelFilter, startTime, endTime, limit: PAGE_SIZE, sort: sortDir };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gateway.available, gateway.contextPath, primaryEnv?.id, levelFilterKey, startTime, endTime, sortDir]);
+
+  const {
+    data: gatewayData,
+    isLoading: loadingGateway,
+    hasNextPage: hasMoreGateway,
+    isFetchingNextPage: fetchingMoreGateway,
+    fetchNextPage: fetchMoreGateway,
+    refetch: refetchGateway,
+  } = useInfiniteGatewayLogs(gatewayRequest, autoFetch ? AUTO_FETCH_INTERVAL : false);
+
+  const componentLogs = useVisibleLogs(data, { levels: levelFilter });
+  const gatewayLogs = useVisibleLogs(gatewayData, { levels: levelFilter });
+
+  // Merged for display only: a shared cursor would step past rows the other source had not fetched.
+  const logs = useMemo(() => (gateway.available ? mergeLogRows(componentLogs, gatewayLogs, sortDir) : componentLogs), [gateway.available, componentLogs, gatewayLogs, sortDir]);
+
+  // Gateway rows only: the integration's own logs outlive the gateway's, so the notice would misinform.
+  const beyondRetention = gateway.available && Date.now() - new Date(startTime).getTime() > GATEWAY_LOG_RETENTION_DAYS * 24 * 3600_000;
+
+  const refetchAll = (): void => {
+    void refetch();
+    if (gateway.available) void refetchGateway();
+  };
+  const fetchNextAll = (): void => {
+    if (hasNextPage) void fetchNextPage();
+    if (hasMoreGateway) void fetchMoreGateway();
+  };
 
   if (loadingOrgs || loadingProjects || loadingComponent || loadingEnvironments) {
     return (
@@ -111,20 +148,33 @@ export default function RuntimeLogsIntegration(scope: ComponentScope): JSX.Eleme
   return (
     <LogsPageLayout
       title="Runtime Logs"
-      filtersElement={<LogsFilters filters={filters} environments={environments} logs={logs} logsRequest={logsRequest} onRefetch={refetch} />}
+      filtersElement={<LogsFilters filters={filters} environments={environments} logs={logs} logsRequest={logsRequest} onRefetch={refetchAll} gatewayControls={gateway.available} />}
       logPanelElement={
-        <LogsPanel
-          items={logs}
-          getKey={(l, i) => `${i}-${l.timestamp}-${l.logLine.slice(0, 50)}`}
-          renderRow={(l, ex, tg) => <LogEntry log={l} expanded={ex} onToggle={tg} envName={primaryEnv?.name} />}
-          isLoading={isLoading}
-          error={error}
-          hasNextPage={hasNextPage}
-          isFetchingNextPage={isFetchingNextPage}
-          onRefetch={refetch}
-          onFetchNextPage={fetchNextPage}
-          onClearFilters={filters.clearFilters}
-        />
+        <Stack sx={{ minHeight: 0, flex: 1 }}>
+          <LogsNotices
+            beyondRetention={beyondRetention}
+            loaded={
+              gateway.available
+                ? [
+                    { label: 'application', count: componentLogs.length, hasMore: hasNextPage },
+                    { label: 'gateway', count: gatewayLogs.length, hasMore: hasMoreGateway },
+                  ]
+                : []
+            }
+          />
+          <LogsPanel
+            items={logs}
+            getKey={(l, i) => `${i}-${l.timestamp}-${l.logLine.slice(0, 50)}`}
+            renderRow={(l, ex, tg) => <LogEntry log={l} expanded={ex} onToggle={tg} envName={primaryEnv?.name} />}
+            isLoading={isLoading || loadingGateway}
+            error={error}
+            hasNextPage={hasNextPage || hasMoreGateway}
+            isFetchingNextPage={isFetchingNextPage || fetchingMoreGateway}
+            onRefetch={refetchAll}
+            onFetchNextPage={fetchNextAll}
+            onClearFilters={filters.clearFilters}
+          />
+        </Stack>
       }
     />
   );

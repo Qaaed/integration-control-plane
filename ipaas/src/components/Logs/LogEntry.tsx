@@ -20,9 +20,14 @@ import { Chip, IconButton, Stack, Tooltip, Typography } from '@wso2/oxygen-ui';
 import { ChevronDown, ChevronRight, Copy } from '@wso2/oxygen-ui-icons-react';
 import type { JSX } from 'react';
 import type { LogRow } from '../../types/logs';
+import { parseAccessLine } from '../../utils/gatewayLogs';
 import { DISPLAY_FIELDS, copyLog, formatValue, levelColor, statusCodeColor } from '../../utils/logs';
+import { GATEWAY_CHIP_COLORS, logChipSx } from './LogEntry.styles';
 
 export default function LogEntry({ log, expanded, onToggle, envName }: { log: LogRow; expanded: boolean; onToggle: () => void; envName?: string }): JSX.Element {
+  // A request the gateway proxied reads as JSON; its own output does not, and stays raw.
+  const request = log.source === 'gateway' && log.kind === 'access' ? parseAccessLine(log.logLine) : null;
+
   return (
     <>
       <Stack
@@ -48,12 +53,18 @@ export default function LogEntry({ log, expanded, onToggle, envName }: { log: Lo
         </Typography>
         {envName ? (
           <Tooltip title="Environment">
-            <Chip label={envName} size="small" sx={{ fontFamily: 'monospace', fontSize: 10, height: 18, mr: 1, bgcolor: 'action.selected', color: 'text.secondary', fontWeight: 600 }} />
+            <Chip label={envName} size="small" sx={logChipSx('action.selected', 'text.secondary', 600)} />
           </Tooltip>
         ) : null}
-        {log.level ? <Chip label={log.level} size="small" sx={{ fontFamily: 'monospace', fontSize: 10, height: 18, mr: 1, bgcolor: levelColor(log.level).bg, color: levelColor(log.level).text, fontWeight: 700 }} /> : null}
-        {log.gatewayCode ? <Chip label={log.gatewayCode} size="small" sx={{ fontFamily: 'monospace', fontSize: 10, height: 18, mr: 1, bgcolor: '#ede7f6', color: '#4527a0', fontWeight: 700 }} /> : null}
-        {log.statusCode ? <Chip label={log.statusCode} size="small" sx={{ fontFamily: 'monospace', fontSize: 10, height: 18, mr: 1, bgcolor: statusCodeColor(log.statusCode).bg, color: statusCodeColor(log.statusCode).text, fontWeight: 700 }} /> : null}
+        {log.level ? <Chip label={log.level} size="small" sx={logChipSx(levelColor(log.level).bg, levelColor(log.level).text)} /> : null}
+        {log.source === 'gateway' ? (
+          <Tooltip title="Logged by the API gateway, not by the integration">
+            <Chip label="Gateway" size="small" sx={logChipSx(GATEWAY_CHIP_COLORS.bgcolor, GATEWAY_CHIP_COLORS.color)} />
+          </Tooltip>
+        ) : null}
+        {request?.status ? <Chip label={request.status} size="small" sx={logChipSx(statusCodeColor(String(request.status)).bg, statusCodeColor(String(request.status)).text)} /> : null}
+        {log.gatewayCode ? <Chip label={log.gatewayCode} size="small" sx={logChipSx('#ede7f6', '#4527a0')} /> : null}
+        {log.statusCode ? <Chip label={log.statusCode} size="small" sx={logChipSx(statusCodeColor(log.statusCode).bg, statusCodeColor(log.statusCode).text)} /> : null}
         {log.serviceType && (
           <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap', mr: 1 }}>
             {log.serviceType}
@@ -70,8 +81,13 @@ export default function LogEntry({ log, expanded, onToggle, envName }: { log: Lo
             flex: 1,
             minWidth: 0,
           }}>
-          {log.logLine}
+          {request ? `${request.method ?? ''} ${request.path ?? ''}`.trim() : log.logLine}
         </Typography>
+        {request?.durationMs !== null && request?.durationMs !== undefined ? (
+          <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap', ml: 1, flexShrink: 0 }}>
+            {request.durationMs}ms
+          </Typography>
+        ) : null}
         <Stack direction="row" className="log-actions" sx={{ visibility: 'hidden', ml: 1, flexShrink: 0 }}>
           <Tooltip title="Copy">
             <IconButton
@@ -97,6 +113,16 @@ export default function LogEntry({ log, expanded, onToggle, envName }: { log: Lo
             mx: 0.5,
             mb: 0.5,
           }}>
+          {request ? (
+            <Stack direction="row" sx={{ borderBottom: '1px solid', borderColor: 'divider', py: 0.5, gap: 2 }}>
+              <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 600, minWidth: 160, flexShrink: 0 }}>
+                Request
+              </Typography>
+              <Typography component="span" sx={{ fontFamily: 'monospace', fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                {log.logLine}
+              </Typography>
+            </Stack>
+          ) : null}
           {DISPLAY_FIELDS.map(({ key, label }) => {
             const val = formatValue(log[key]);
             if (!val) return null;
