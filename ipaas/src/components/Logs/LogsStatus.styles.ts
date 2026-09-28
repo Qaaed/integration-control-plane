@@ -16,16 +16,11 @@
  * under the License.
  */
 
-import { Alert } from '@wso2/oxygen-ui';
-import type { JSX } from 'react';
-import { GATEWAY_LOG_RETENTION_DAYS } from '../../constants/gatewayLogs';
-import { noticeSx } from './LogsNotices.styles';
-
-export default function LogsNotices({ beyondRetention = false }: { beyondRetention?: boolean }): JSX.Element | null {
-  if (!beyondRetention) return null;
-  return (
-    <Alert severity="info" sx={noticeSx}>
-      Gateway logs are kept for {GATEWAY_LOG_RETENTION_DAYS} days. Anything older than that in the selected range is no longer available.
-    </Alert>
-  );
-}
+export const statusDotSx = (color: string) =>
+  ({
+    width: 8,
+    height: 8,
+    borderRadius: '50%',
+    bgcolor: color,
+    flexShrink: 0,
+  }) as const;

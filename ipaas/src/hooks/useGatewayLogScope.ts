@@ -18,8 +18,9 @@
 
 import { useMemo } from 'react';
 import { useComponentDeployment, useEnvEndpoints } from './useDeployments';
+import { useEndpointSecurity } from './useConsumers';
 import { IS_CLOUD } from '../features';
-import { endpointContextPath } from '../utils/gatewayLogs';
+import { endpointContextPath, gatewayFrontedEndpoint } from '../utils/gatewayLogs';
 import type { ComponentDetail } from '../types/component';
 
 /** What an integration needs before its gateway traffic can be read: an endpoint the gateway fronts, and its path. */
@@ -28,7 +29,6 @@ export interface GatewayLogScope {
   contextPath: string;
   /** False when nothing is exposed through the gateway, or on a product with no observability proxy. */
   available: boolean;
-  isLoading: boolean;
 }
 
 export function useGatewayLogScope(orgHandler: string, orgUuid: string, component: ComponentDetail | null | undefined, environmentId: string): GatewayLogScope {
@@ -38,15 +38,16 @@ export function useGatewayLogScope(orgHandler: string, orgUuid: string, componen
   }, [component]);
 
   // The endpoint is the signal, not the type: wire type names differ from the console's vocabulary.
-  const { data: deployment, isLoading: loadingDeployment } = useComponentDeployment(IS_CLOUD ? orgHandler : '', orgUuid, component?.id ?? '', versionId, environmentId);
+  const { data: deployment } = useComponentDeployment(IS_CLOUD ? orgHandler : '', orgUuid, component?.id ?? '', versionId, environmentId);
   const releaseId = deployment?.releaseId ?? '';
-  const { data: endpoints = [], isLoading: loadingEndpoints } = useEnvEndpoints(IS_CLOUD ? (component?.id ?? '') : '', versionId, releaseId);
+  const { data: endpoints = [] } = useEnvEndpoints(IS_CLOUD ? (component?.id ?? '') : '', versionId, releaseId);
 
-  // The public URL is the one a caller uses, so its path is the context the access log records.
-  const contextPath = useMemo(() => {
-    const endpoint = endpoints.find((e) => e.publicUrl) ?? endpoints.find((e) => e.organizationUrl) ?? endpoints[0];
-    return endpoint ? endpointContextPath(endpoint.apiContext, endpoint.publicUrl ?? endpoint.organizationUrl ?? endpoint.invokeUrl) : '';
-  }, [endpoints]);
+  const endpoint = gatewayFrontedEndpoint(endpoints);
+  const securityRef = IS_CLOUD && component && endpoint ? { componentName: component.id, environmentName: environmentId, endpointName: endpoint.id } : null;
+  const { data: security } = useEndpointSecurity(securityRef, !!securityRef);
 
-  return { contextPath, available: IS_CLOUD && contextPath !== '', isLoading: loadingDeployment || loadingEndpoints };
+  // An API exposed through the platform gateway has no external URL on the release, only the security publicUrl.
+  const contextPath = endpoint ? endpointContextPath(endpoint.apiContext, security?.publicUrl || endpoint.publicUrl) : '';
+
+  return { contextPath, available: IS_CLOUD && contextPath !== '' };
 }

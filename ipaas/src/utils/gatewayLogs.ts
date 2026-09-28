@@ -18,18 +18,9 @@
 
 /** Telling a proxied request apart from the gateway talking about itself, and reading the request out of it. */
 
-import type { GatewayLogKind, GatewayLogKindFilter, LogRow } from '../types/logs';
-
-/** One proxied request, as the gateway's access log records it. Null fields are ones the line omitted. */
-export interface AccessLogFields {
-  method: string | null;
-  path: string | null;
-  status: number | null;
-  durationMs: number | null;
-  authority: string | null;
-  responseFlags: string | null;
-  userAgent: string | null;
-}
+import type { AccessLogFields, LogRow } from '../types/logs';
+import { GATEWAY_LOG_RETENTION_DAYS } from '../constants/gatewayLogs';
+import type { EnvEndpoint } from '../types/component';
 
 // Two spellings per marker: this gateway logs abbreviated keys, Envoy's shipped json_fields the long ones.
 const ACCESS_MARKERS: readonly (readonly string[])[] = [
@@ -61,12 +52,6 @@ function isAccessLog(fields: Record<string, unknown>): boolean {
   return found >= MIN_ACCESS_MARKERS;
 }
 
-/** Anything not positively an access log is operational — the safe direction for a panel meant to show traffic. */
-export function classifyGatewayLine(line: string): GatewayLogKind {
-  const fields = parseJsonObject(line);
-  return fields && isAccessLog(fields) ? 'access' : 'operational';
-}
-
 function asString(value: unknown): string | null {
   return typeof value === 'string' && value !== '' ? value : null;
 }
@@ -83,7 +68,7 @@ function pick<T>(fields: Record<string, unknown>, read: (value: unknown) => T | 
   return null;
 }
 
-/** Returns null for a line that is not an access log, so a caller renders it raw instead. */
+/** Null for anything not positively an access log — the safe direction for a panel meant to show traffic. */
 export function parseAccessLine(line: string): AccessLogFields | null {
   const fields = parseJsonObject(line);
   if (!fields || !isAccessLog(fields)) return null;
@@ -103,37 +88,56 @@ const HEALTH_PROBE_PATH = '/_gateway-health/';
 const HEALTH_PROBE_AGENT = 'kube-probe';
 
 /** A liveness or readiness probe rather than a caller's request. Operational lines are never probes. */
-export function isHealthProbeLine(line: string): boolean {
-  const fields = parseAccessLine(line);
-  if (!fields) return false;
-  return fields.path?.startsWith(HEALTH_PROBE_PATH) === true || fields.userAgent?.includes(HEALTH_PROBE_AGENT) === true;
+export function isHealthProbe(request: AccessLogFields | null | undefined): boolean {
+  if (!request) return false;
+  return request.path?.startsWith(HEALTH_PROBE_PATH) === true || request.userAgent?.includes(HEALTH_PROBE_AGENT) === true;
+}
+
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// The query's searchPhrase is a bare substring, so /greeting would also take /greeting-v2 and /internal/greeting.
+export function mentionsContextPath(line: string, contextPath: string): boolean {
+  if (!contextPath) return true;
+  return new RegExp(`(^|[\\s"'=:])${escapeRegExp(contextPath)}(?=$|[/?#\\s"'])`).test(line);
+}
+
+// Only Public endpoints are exposed through the gateway; Project and Organization traffic stays in-cluster.
+export function gatewayFrontedEndpoint(endpoints: EnvEndpoint[]): EnvEndpoint | undefined {
+  return endpoints.find((e) => e.networkVisibilities?.includes('Public'));
+}
+
+/** The range reaches past what the gateway keeps, so its older part returns nothing. */
+export function startsBeyondGatewayRetention(startTime: string, now = Date.now()): boolean {
+  return now - new Date(startTime).getTime() > GATEWAY_LOG_RETENTION_DAYS * 24 * 3600_000;
 }
 
 /** The context an access log records is the endpoint's own path, which is where a caller's URL starts. */
 export function endpointContextPath(apiContext?: string | null, url?: string | null): string {
-  if (apiContext) return apiContext.startsWith('/') ? apiContext : `/${apiContext}`;
+  // A root context stays empty: '/' cannot narrow a gateway the whole organization shares.
+  if (apiContext) return `/${apiContext.replace(/^\/+|\/+$/g, '')}`.replace(/^\/$/, '');
   if (!url) return '';
   try {
-    return new URL(url).pathname.replace(/\/$/, '');
+    return new URL(url).pathname.replace(/\/+$/, '');
   } catch {
     return '';
   }
 }
 
 export interface GatewayRowFilter {
-  kind: GatewayLogKindFilter;
   hideHealthChecks: boolean;
   /** Narrows the loaded rows, because the query's own searchPhrase already carries the endpoint's path. */
   searchPhrase?: string;
+  /** Re-checks the query's substring match at a path boundary. */
+  contextPath?: string;
 }
 
 /** Runs after the fetch: the log backend can neither classify a line nor exclude a path. */
-export function filterGatewayRows(rows: LogRow[], { kind, hideHealthChecks, searchPhrase = '' }: GatewayRowFilter): LogRow[] {
+export function filterGatewayRows(rows: LogRow[], { hideHealthChecks, searchPhrase = '', contextPath = '' }: GatewayRowFilter): LogRow[] {
   const phrase = searchPhrase.trim().toLowerCase();
-  if (kind === 'all' && !hideHealthChecks && !phrase) return rows;
+  if (!hideHealthChecks && !phrase && !contextPath) return rows;
   return rows.filter((row) => {
-    if (kind !== 'all' && row.kind !== kind) return false;
-    if (hideHealthChecks && isHealthProbeLine(row.logLine)) return false;
+    if (hideHealthChecks && isHealthProbe(row.request)) return false;
+    if (!mentionsContextPath(row.logLine, contextPath)) return false;
     return !phrase || row.logLine.toLowerCase().includes(phrase);
   });
 }

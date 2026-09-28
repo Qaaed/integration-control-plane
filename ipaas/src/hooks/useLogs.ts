@@ -22,7 +22,7 @@ import type { InfiniteData } from '@tanstack/react-query';
 import { fetchLogs, fetchComponentLogs, fetchGatewayLogs } from '#api/logs';
 import { IS_CLOUD } from '../features';
 import { filterLogRows, type LogRowFilter } from '../utils/logs';
-import type { LogsRequest, ComponentLogsRequest, GatewayLogsRequest, LogRow } from '../types/logs';
+import type { LogsRequest, ComponentLogsRequest, GatewayLogsPage, GatewayLogsRequest, LogRow } from '../types/logs';
 
 // The cloud log source cannot narrow by level, so leaving levels out of its
 // request keeps the query key — and the pages already loaded — stable while the
@@ -82,21 +82,21 @@ export function useInfiniteComponentLogs(req: ComponentLogsRequest | null, refet
   });
 }
 
+// Module-level so React Query keeps the selected identity between renders.
+const gatewayRowPages = (data: InfiniteData<GatewayLogsPage>): InfiniteData<LogRow[]> => ({ ...data, pages: data.pages.map((page) => page.rows) });
+
 /** Paged by narrowing the window from the last row, since the log backend offers no cursor. */
 export function useInfiniteGatewayLogs(req: GatewayLogsRequest | null, refetchInterval: number | false = false) {
-  const query = useMemo(() => sourceRequest(req), [req]);
   return useInfiniteQuery({
-    queryKey: ['gateway-logs', query],
+    queryKey: ['gateway-logs', req],
     queryFn: async ({ pageParam }) => {
-      const pageReq = pageParam ? { ...query!, ...(query!.sort === 'desc' ? { endTime: pageParam } : { startTime: pageParam }) } : query!;
+      const pageReq = pageParam ? { ...req!, ...(req!.sort === 'desc' ? { endTime: pageParam } : { startTime: pageParam }) } : req!;
       return fetchGatewayLogs(pageReq);
     },
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => {
-      if (!query || lastPage.length < query.limit) return undefined;
-      return lastPage[lastPage.length - 1]?.timestamp;
-    },
-    enabled: !!query,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    select: gatewayRowPages,
+    enabled: !!req,
     refetchInterval,
   });
 }

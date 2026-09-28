@@ -20,13 +20,11 @@ import { Chip, IconButton, Stack, Tooltip, Typography } from '@wso2/oxygen-ui';
 import { ChevronDown, ChevronRight, Copy } from '@wso2/oxygen-ui-icons-react';
 import type { JSX } from 'react';
 import type { LogRow } from '../../types/logs';
-import { parseAccessLine } from '../../utils/gatewayLogs';
 import { DISPLAY_FIELDS, copyLog, formatValue, levelColor, statusCodeColor } from '../../utils/logs';
 import { GATEWAY_CHIP_COLORS, logChipSx } from './LogEntry.styles';
 
 export default function LogEntry({ log, expanded, onToggle, envName }: { log: LogRow; expanded: boolean; onToggle: () => void; envName?: string }): JSX.Element {
-  // A request the gateway proxied reads as JSON; its own output does not, and stays raw.
-  const request = log.source === 'gateway' && log.kind === 'access' ? parseAccessLine(log.logLine) : null;
+  const request = log.source === 'gateway' ? log.request : null;
 
   return (
     <>
@@ -62,7 +60,7 @@ export default function LogEntry({ log, expanded, onToggle, envName }: { log: Lo
             <Chip label="Gateway" size="small" sx={logChipSx(GATEWAY_CHIP_COLORS.bgcolor, GATEWAY_CHIP_COLORS.color)} />
           </Tooltip>
         ) : null}
-        {request?.status ? <Chip label={request.status} size="small" sx={logChipSx(statusCodeColor(String(request.status)).bg, statusCodeColor(String(request.status)).text)} /> : null}
+        {request?.status != null ? <Chip label={request.status} size="small" sx={logChipSx(statusCodeColor(String(request.status)).bg, statusCodeColor(String(request.status)).text)} /> : null}
         {log.gatewayCode ? <Chip label={log.gatewayCode} size="small" sx={logChipSx('#ede7f6', '#4527a0')} /> : null}
         {log.statusCode ? <Chip label={log.statusCode} size="small" sx={logChipSx(statusCodeColor(log.statusCode).bg, statusCodeColor(log.statusCode).text)} /> : null}
         {log.serviceType && (

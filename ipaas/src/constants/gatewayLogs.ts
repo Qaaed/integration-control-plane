@@ -18,3 +18,5 @@
 
 /** What the observability plane keeps. A query reaching further back returns nothing for the older part. */
 export const GATEWAY_LOG_RETENTION_DAYS = 3;
+
+export const GATEWAY_LOGS_FAILED = "Couldn't load gateway logs";

@@ -18,7 +18,8 @@
 
 import { describe, expect, it } from 'vitest';
 import type { LogRow } from '../types/logs';
-import { classifyGatewayLine, endpointContextPath, filterGatewayRows, isHealthProbeLine, parseAccessLine } from './gatewayLogs';
+import { endpointContextPath, filterGatewayRows, gatewayFrontedEndpoint, isHealthProbe, mentionsContextPath, parseAccessLine, startsBeyondGatewayRetention } from './gatewayLogs';
+import type { EnvEndpoint } from '../types/component';
 
 // Taken from a DEV gateway: the apip gateway tags every line `[rtr]` and logs abbreviated keys.
 const RTR_ACCESS_LINE =
@@ -54,26 +55,26 @@ const ENVOY_ACCESS_LINE = JSON.stringify({
   user_agent: 'curl/8.7.1',
 });
 
-describe('classifyGatewayLine', () => {
+describe('parseAccessLine recognition', () => {
   it.each([
-    ['a tagged access line', RTR_ACCESS_LINE, 'access'],
-    ['an untagged envoy access line', ENVOY_ACCESS_LINE, 'access'],
-    ['a tagged operational line', RTR_OPERATIONAL_LINE, 'operational'],
-    ['an access line missing one marker', '{"meth":"POST","path":"/orders","respCd":201,"dur":8}', 'access'],
-    ['a policy-engine error', '{"time":"2026-09-12T06:00:00Z","level":"ERROR","msg":"policy evaluation failed","policy":"ratelimit_v1"}', 'operational'],
-    ['a controller reconcile line', '{"level":"info","ts":"2026-09-12T06:00:00Z","msg":"reconciled API","api":"pizzashack"}', 'operational'],
-    ['envoy plain text', '[2026-09-12 06:00:00.123][1][info][main] initializing epoch 0', 'operational'],
-    ['two markers only', '{"meth":"internal","path":"/healthz"}', 'operational'],
-    ['truncated json', '{"meth":"GET","path":"/a","respCd":', 'operational'],
-    ['a json array', '[{"meth":"GET","path":"/a","respCd":200}]', 'operational'],
-    ['an empty line', '', 'operational'],
-    ['whitespace', '   \n', 'operational'],
-  ])('classifies %s', (_label, line, expected) => {
-    expect(classifyGatewayLine(line)).toBe(expected);
+    ['a tagged access line', RTR_ACCESS_LINE, true],
+    ['an untagged envoy access line', ENVOY_ACCESS_LINE, true],
+    ['a tagged operational line', RTR_OPERATIONAL_LINE, false],
+    ['an access line missing one marker', '{"meth":"POST","path":"/orders","respCd":201,"dur":8}', true],
+    ['a policy-engine error', '{"time":"2026-09-12T06:00:00Z","level":"ERROR","msg":"policy evaluation failed","policy":"ratelimit_v1"}', false],
+    ['a controller reconcile line', '{"level":"info","ts":"2026-09-12T06:00:00Z","msg":"reconciled API","api":"pizzashack"}', false],
+    ['envoy plain text', '[2026-09-12 06:00:00.123][1][info][main] initializing epoch 0', false],
+    ['two markers only', '{"meth":"internal","path":"/healthz"}', false],
+    ['truncated json', '{"meth":"GET","path":"/a","respCd":', false],
+    ['a json array', '[{"meth":"GET","path":"/a","respCd":200}]', false],
+    ['an empty line', '', false],
+    ['whitespace', '   \n', false],
+  ])('recognises %s', (_label, line, expected) => {
+    expect(parseAccessLine(line) !== null).toBe(expected);
   });
 
   it('reads the line, not the whitespace a collector wrapped it in', () => {
-    expect(classifyGatewayLine(`  \n${RTR_ACCESS_LINE}\t`)).toBe('access');
+    expect(parseAccessLine(`  \n${RTR_ACCESS_LINE}\t`)).not.toBeNull();
   });
 });
 
@@ -124,7 +125,7 @@ describe('parseAccessLine', () => {
   });
 });
 
-describe('isHealthProbeLine', () => {
+describe('isHealthProbe', () => {
   const probe = '[rtr] ' + JSON.stringify({ meth: 'GET', path: '/_gateway-health/ready', respCd: 200, t: 'x', ua: 'kube-probe/1.33' });
 
   it.each([
@@ -134,7 +135,7 @@ describe('isHealthProbeLine', () => {
     ['a real request', RTR_ACCESS_LINE, false],
     ['an operational line', RTR_OPERATIONAL_LINE, false],
   ])('reports %s', (_label, line, expected) => {
-    expect(isHealthProbeLine(line)).toBe(expected);
+    expect(isHealthProbe(parseAccessLine(line))).toBe(expected);
   });
 });
 
@@ -146,33 +147,78 @@ describe('endpointContextPath', () => {
     ['a trailing slash removed, so the value matches what a log line carries', null, 'https://gw.example.com/hello/', '/hello'],
     ['nothing to go on', null, null, ''],
     ['a URL that will not parse', null, 'not a url', ''],
+    ['a declared context with a trailing slash, the same as its URL form', '/greeting/', null, '/greeting'],
+    ['a root context, which cannot narrow a shared gateway', '/', null, ''],
+    ['a root URL', null, 'https://gw.example.com/', ''],
   ])('reads %s', (_label, apiContext, url, expected) => {
     expect(endpointContextPath(apiContext, url)).toBe(expected);
   });
 });
 
 describe('filterGatewayRows', () => {
-  const row = (logLine: string, kind: 'access' | 'operational'): LogRow => ({ logLine, kind, source: 'gateway' }) as LogRow;
-  const rows = [row(RTR_ACCESS_LINE, 'access'), row('[rtr] ' + JSON.stringify({ meth: 'GET', path: '/_gateway-health/ready', respCd: 200, t: 'x', ua: 'kube-probe/1.33' }), 'access'), row(RTR_OPERATIONAL_LINE, 'operational')];
+  const row = (logLine: string): LogRow => ({ logLine, source: 'gateway', request: parseAccessLine(logLine) }) as LogRow;
+  const rows = [row(RTR_ACCESS_LINE), row('[rtr] ' + JSON.stringify({ meth: 'GET', path: '/_gateway-health/ready', respCd: 200, t: 'x', ua: 'kube-probe/1.33' })), row(RTR_OPERATIONAL_LINE)];
 
   // Returning the same array keeps a caller's memoized identity stable.
   it('returns the rows untouched when nothing narrows them', () => {
-    expect(filterGatewayRows(rows, { kind: 'all', hideHealthChecks: false })).toBe(rows);
-  });
-
-  it('keeps only the requested kind', () => {
-    expect(filterGatewayRows(rows, { kind: 'operational', hideHealthChecks: false })).toHaveLength(1);
-    expect(filterGatewayRows(rows, { kind: 'access', hideHealthChecks: false })).toHaveLength(2);
+    expect(filterGatewayRows(rows, { hideHealthChecks: false })).toBe(rows);
   });
 
   it('drops health probes without dropping real requests', () => {
-    const kept = filterGatewayRows(rows, { kind: 'access', hideHealthChecks: true });
-    expect(kept).toHaveLength(1);
-    expect(kept[0].logLine).toBe(RTR_ACCESS_LINE);
+    const kept = filterGatewayRows(rows, { hideHealthChecks: true });
+    expect(kept.map((r) => r.logLine)).toEqual([RTR_ACCESS_LINE, RTR_OPERATIONAL_LINE]);
   });
 
   it('narrows by a phrase, case-insensitively', () => {
-    expect(filterGatewayRows(rows, { kind: 'all', hideHealthChecks: false, searchPhrase: 'GREETING' })).toHaveLength(1);
-    expect(filterGatewayRows(rows, { kind: 'all', hideHealthChecks: false, searchPhrase: '   ' })).toBe(rows);
+    expect(filterGatewayRows(rows, { hideHealthChecks: false, searchPhrase: 'GREETING' })).toHaveLength(1);
+    expect(filterGatewayRows(rows, { hideHealthChecks: false, searchPhrase: '   ' })).toBe(rows);
+  });
+
+  it('keeps only lines carrying the context path at a path boundary', () => {
+    const lookalike = row('[rtr] ' + JSON.stringify({ meth: 'GET', path: '/hello-world-service-endpoint-90-37b21ad5-v2/greeting', respCd: 200, t: 'x' }));
+    const kept = filterGatewayRows([...rows, lookalike], { hideHealthChecks: false, contextPath: '/hello-world-service-endpoint-90-37b21ad5' });
+    expect(kept.map((r) => r.logLine)).toEqual([RTR_ACCESS_LINE]);
+  });
+});
+
+describe('gatewayFrontedEndpoint', () => {
+  const endpoint = (id: string, networkVisibilities: string[]): EnvEndpoint => ({ id, networkVisibilities }) as EnvEndpoint;
+
+  it('picks the first Public endpoint, skipping ones the gateway never sees', () => {
+    const endpoints = [endpoint('project-only', ['Project']), endpoint('org-only', ['Organization']), endpoint('public', ['Public']), endpoint('public-2', ['Public'])];
+    expect(gatewayFrontedEndpoint(endpoints)?.id).toBe('public');
+  });
+
+  it('finds none when no endpoint is Public', () => {
+    expect(gatewayFrontedEndpoint([endpoint('project-only', ['Project']), endpoint('org-only', ['Organization'])])).toBeUndefined();
+  });
+});
+
+describe('mentionsContextPath', () => {
+  it.each([
+    ['the path followed by a sub-path', '{"path":"/greeting/hello"}', true],
+    ['the path at the end of a quoted value', '{"path":"/greeting"}', true],
+    ['the path followed by a query', 'GET /greeting?x=1', true],
+    ['a longer path sharing the prefix', '{"path":"/greeting-v2/hello"}', false],
+    ['the path nested under another', '{"path":"/internal/greeting"}', false],
+  ])('reports %s', (_label, line, expected) => {
+    expect(mentionsContextPath(line, '/greeting')).toBe(expected);
+  });
+
+  it('treats a regex-special path literally', () => {
+    expect(mentionsContextPath('{"path":"/a.b"}', '/a.b')).toBe(true);
+    expect(mentionsContextPath('{"path":"/aXb"}', '/a.b')).toBe(false);
+  });
+});
+
+describe('startsBeyondGatewayRetention', () => {
+  const now = Date.parse('2026-09-28T12:00:00Z');
+
+  it.each([
+    ['a range inside the retention window', '2026-09-27T12:00:00Z', false],
+    ['a range starting exactly at the horizon', '2026-09-25T12:00:00Z', false],
+    ['a range starting before the horizon', '2026-09-25T11:59:59Z', true],
+  ])('reports %s', (_label, startTime, expected) => {
+    expect(startsBeyondGatewayRetention(startTime, now)).toBe(expected);
   });
 });

@@ -25,16 +25,17 @@ import { useComponentByHandler } from '../hooks/useComponents';
 import { useEnvironments, useAllEnvironments } from '../hooks/useEnvironments';
 import { useInfiniteComponentLogs, useInfiniteGatewayLogs, useVisibleLogs } from '../hooks/useLogs';
 import { useGatewayLogScope } from '../hooks/useGatewayLogScope';
-import { filterGatewayRows } from '../utils/gatewayLogs';
-import { mergeLogRows } from '../utils/logs';
+import { filterGatewayRows, startsBeyondGatewayRetention } from '../utils/gatewayLogs';
+import { selectLogSources } from '../utils/logs';
 import type { ComponentLogsRequest, GatewayLogsRequest } from '../types/logs';
 import { choreologgingComponentLogsApiUrl, choreologgingComponentGatewayLogsApiUrl } from '../config/runtimeConfig';
 import { GENERIC_SERVICE_TYPES } from '../constants/integrations';
-import { GATEWAY_LOG_RETENTION_DAYS } from '../constants/gatewayLogs';
+import { GATEWAY_LOGS_FAILED } from '../constants/gatewayLogs';
 import { AUTO_FETCH_INTERVAL, DEFAULT_DP_REGION, PAGE_SIZE } from '../utils/logs';
 import LogsFilters from '../components/Logs/LogsFilters';
 import LogsPageLayout from '../components/Logs/LogsPageLayout';
 import LogsNotices from '../components/Logs/LogsNotices';
+import LogsStatus from '../components/Logs/LogsStatus';
 import LogsPanel from '../components/Logs/LogsPanel';
 import LogEntry from '../components/Logs/LogEntry';
 import EmptyListing from '../components/EmptyListing';
@@ -44,7 +45,7 @@ import { broaden, resourceUrl, type ComponentScope } from '../nav';
 
 export default function RuntimeLogsIntegration(scope: ComponentScope): JSX.Element {
   const filters = useLogsFilters();
-  const { envFilter, levelFilter, sortDir, searchPhrase, autoFetch, startTime, endTime, kindFilter, hideHealthChecks } = filters;
+  const { envFilter, levelFilter, sortDir, searchPhrase, autoFetch, startTime, endTime, sourceFilter, hideHealthChecks } = filters;
 
   const { data: orgs, isLoading: loadingOrgs } = useOrgs();
   const { data: projects, isLoading: loadingProjects } = useProjectsByOrg(scope.org);
@@ -95,13 +96,12 @@ export default function RuntimeLogsIntegration(scope: ComponentScope): JSX.Eleme
   const gateway = useGatewayLogScope(scope.org, orgUuid, component, primaryEnv?.id ?? '');
   const gatewayRequest = useMemo<GatewayLogsRequest | null>(() => {
     if (!gateway.available || !primaryEnv) return null;
-    return { environmentId: primaryEnv.id, searchPhrase: gateway.contextPath, logLevels: levelFilter, startTime, endTime, limit: PAGE_SIZE, sort: sortDir };
+    return { environmentId: primaryEnv.id, searchPhrase: gateway.contextPath, startTime, endTime, limit: PAGE_SIZE, sort: sortDir };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gateway.available, gateway.contextPath, primaryEnv?.id, levelFilterKey, startTime, endTime, sortDir]);
+  }, [gateway.available, gateway.contextPath, primaryEnv?.id, startTime, endTime, sortDir]);
 
   const {
     data: gatewayData,
-    isLoading: loadingGateway,
     error: gatewayError,
     hasNextPage: hasMoreGateway,
     isFetchingNextPage: fetchingMoreGateway,
@@ -113,21 +113,24 @@ export default function RuntimeLogsIntegration(scope: ComponentScope): JSX.Eleme
   const gatewayRows = useVisibleLogs(gatewayData, { levels: levelFilter });
 
   // The query's searchPhrase carries the endpoint's path, so the user's own phrase narrows here instead.
-  const gatewayLogs = useMemo(() => filterGatewayRows(gatewayRows, { kind: kindFilter, hideHealthChecks, searchPhrase }), [gatewayRows, kindFilter, hideHealthChecks, searchPhrase]);
+  const gatewayLogs = useMemo(() => filterGatewayRows(gatewayRows, { hideHealthChecks, searchPhrase, contextPath: gateway.contextPath }), [gatewayRows, hideHealthChecks, searchPhrase, gateway.contextPath]);
 
   // Merged for display only: a shared cursor would step past rows the other source had not fetched.
-  const logs = useMemo(() => (gateway.available ? mergeLogRows(componentLogs, gatewayLogs, sortDir) : componentLogs), [gateway.available, componentLogs, gatewayLogs, sortDir]);
+  const logs = useMemo(() => (gateway.available ? selectLogSources(componentLogs, gatewayLogs, sourceFilter, sortDir) : componentLogs), [gateway.available, componentLogs, gatewayLogs, sourceFilter, sortDir]);
+  const statusFailure = error ? "Couldn't load runtime logs" : gateway.available && gatewayError ? GATEWAY_LOGS_FAILED : undefined;
 
   // Gateway rows only: the integration's own logs outlive the gateway's, so the notice would misinform.
-  const beyondRetention = gateway.available && Date.now() - new Date(startTime).getTime() > GATEWAY_LOG_RETENTION_DAYS * 24 * 3600_000;
+  const beyondRetention = gateway.available && startsBeyondGatewayRetention(startTime);
 
   const refetchAll = (): void => {
     void refetch();
     if (gateway.available) void refetchGateway();
   };
+  const showsComponent = !gateway.available || sourceFilter !== 'gateway';
+  const showsGateway = gateway.available && sourceFilter !== 'component';
   const fetchNextAll = (): void => {
-    if (hasNextPage) void fetchNextPage();
-    if (hasMoreGateway) void fetchMoreGateway();
+    if (showsComponent && hasNextPage) void fetchNextPage();
+    if (showsGateway && hasMoreGateway) void fetchMoreGateway();
   };
 
   if (loadingOrgs || loadingProjects || loadingComponent || loadingEnvironments) {
@@ -153,28 +156,19 @@ export default function RuntimeLogsIntegration(scope: ComponentScope): JSX.Eleme
   return (
     <LogsPageLayout
       title="Runtime Logs"
-      filtersElement={<LogsFilters filters={filters} environments={environments} logs={logs} logsRequest={logsRequest} onRefetch={refetchAll} gatewayControls={gateway.available} />}
+      filtersElement={<LogsFilters filters={filters} environments={environments} logs={logs} logsRequest={logsRequest} onRefetch={refetchAll} gatewayControls={gateway.available} sourceControls={gateway.available} />}
       logPanelElement={
         <Stack sx={{ minHeight: 0, flex: 1 }}>
-          <LogsNotices
-            beyondRetention={beyondRetention}
-            loaded={
-              gateway.available
-                ? [
-                    { label: 'application', count: componentLogs.length, hasMore: hasNextPage },
-                    { label: 'gateway', count: gatewayRows.length, hasMore: hasMoreGateway },
-                  ]
-                : []
-            }
-            clientFiltered={gateway.available && (kindFilter !== 'all' || hideHealthChecks || searchPhrase !== '')}
-          />
+          <LogsNotices beyondRetention={beyondRetention} />
+          <LogsStatus count={logs.length} live={autoFetch} failure={statusFailure} />
           <LogsPanel
             items={logs}
             getKey={(l, i) => `${i}-${l.timestamp}-${l.logLine.slice(0, 50)}`}
             renderRow={(l, ex, tg) => <LogEntry log={l} expanded={ex} onToggle={tg} envName={primaryEnv?.name} />}
-            isLoading={isLoading || loadingGateway}
-            error={error ?? gatewayError}
-            hasNextPage={hasNextPage || hasMoreGateway}
+            // Gated on the integration's own logs alone: the gateway query starts later and must not blank rows already shown.
+            isLoading={isLoading}
+            error={error}
+            hasNextPage={(showsComponent && hasNextPage) || (showsGateway && hasMoreGateway)}
             isFetchingNextPage={isFetchingNextPage || fetchingMoreGateway}
             onRefetch={refetchAll}
             onFetchNextPage={fetchNextAll}

@@ -27,8 +27,8 @@
  */
 
 import { bff, items, obsClient, seg, type ListResponse } from './_client';
-import { classifyGatewayLine } from '../../utils/gatewayLogs';
-import type { LogsRequest, ComponentLogsRequest, GatewayLogsRequest, LogRow } from '../../types/logs';
+import { parseAccessLine } from '../../utils/gatewayLogs';
+import type { LogsRequest, ComponentLogsRequest, GatewayLogsPage, GatewayLogsRequest, LogRow } from '../../types/logs';
 
 const LOGS_QUERY_PATH = '/wso2cloud-obs/api/v1/logs/query';
 
@@ -179,8 +179,11 @@ export async function fetchComponentLogs(req: ComponentLogsRequest, _logsApiUrl:
   });
 }
 
+// The log query cannot select the gateway, so a row's container is the only proof it came from one.
+const isGatewayContainer = (containerName: string | undefined): boolean => containerName?.startsWith('gateway-') === true;
+
 /** Scoped by the caller's token alone: gateway pods carry no project or component to narrow by. */
-export async function fetchGatewayLogs(req: GatewayLogsRequest): Promise<LogRow[]> {
+export async function fetchGatewayLogs(req: GatewayLogsRequest): Promise<GatewayLogsPage> {
   const entries = await queryObsLogEntries({
     // environment omitted rather than empty: the Observer resolves the name and rejects a miss.
     searchScope: req.environmentId ? { environment: req.environmentId.toLowerCase() } : {},
@@ -190,5 +193,7 @@ export async function fetchGatewayLogs(req: GatewayLogsRequest): Promise<LogRow[
     sortOrder: req.sort,
     searchPhrase: req.searchPhrase,
   });
-  return entries.map((entry) => ({ ...toLogRow(entry), source: 'gateway' as const, kind: classifyGatewayLine(entry.log ?? '') }));
+  const rows = entries.filter((entry) => isGatewayContainer(entry.metadata?.containerName)).map((entry) => ({ ...toLogRow(entry), source: 'gateway' as const, request: parseAccessLine(entry.log ?? '') }));
+  const nextCursor = entries.length >= req.limit ? entries[entries.length - 1]?.timestamp : undefined;
+  return { rows, nextCursor };
 }
