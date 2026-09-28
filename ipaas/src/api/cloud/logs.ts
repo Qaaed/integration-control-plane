@@ -27,7 +27,8 @@
  */
 
 import { bff, items, obsClient, seg, type ListResponse } from './_client';
-import type { LogsRequest, ComponentLogsRequest, LogRow } from '../../types/logs';
+import { classifyGatewayLine } from '../../utils/gatewayLogs';
+import type { LogsRequest, ComponentLogsRequest, GatewayLogsRequest, LogRow } from '../../types/logs';
 
 const LOGS_QUERY_PATH = '/wso2cloud-obs/api/v1/logs/query';
 
@@ -176,4 +177,18 @@ export async function fetchComponentLogs(req: ComponentLogsRequest, _logsApiUrl:
     sortOrder: req.sort,
     searchPhrase: req.searchPhrase,
   });
+}
+
+/** Scoped by the caller's token alone: gateway pods carry no project or component to narrow by. */
+export async function fetchGatewayLogs(req: GatewayLogsRequest): Promise<LogRow[]> {
+  const entries = await queryObsLogEntries({
+    // environment omitted rather than empty: the Observer resolves the name and rejects a miss.
+    searchScope: req.environmentId ? { environment: req.environmentId.toLowerCase() } : {},
+    startTime: req.startTime,
+    endTime: req.endTime,
+    limit: req.limit,
+    sortOrder: req.sort,
+    searchPhrase: req.searchPhrase,
+  });
+  return entries.map((entry) => ({ ...toLogRow(entry), source: 'gateway' as const, kind: classifyGatewayLine(entry.log ?? '') }));
 }

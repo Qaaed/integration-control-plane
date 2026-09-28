@@ -162,3 +162,14 @@ export function filterLogRows(rows: LogRow[], { levels, componentIds }: LogRowFi
     return true;
   });
 }
+
+/** Two sources as one list; a row whose timestamp will not parse sorts last rather than first. */
+export function mergeLogRows(a: LogRow[], b: LogRow[], sort: 'asc' | 'desc'): LogRow[] {
+  if (b.length === 0) return a;
+  if (a.length === 0) return b;
+  const at = (row: LogRow): number => {
+    const ms = new Date(row.timestamp).getTime();
+    return isNaN(ms) ? (sort === 'desc' ? -Infinity : Infinity) : ms;
+  };
+  return [...a, ...b].sort((x, y) => (sort === 'desc' ? at(y) - at(x) : at(x) - at(y)));
+}

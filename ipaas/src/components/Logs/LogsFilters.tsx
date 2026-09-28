@@ -16,12 +16,13 @@
  * under the License.
  */
 
-import { Button, Checkbox, FormControlLabel, IconButton, ListItemText, MenuItem, Select, Stack, TextField, Tooltip } from '@wso2/oxygen-ui';
+import { Button, Checkbox, FormControlLabel, IconButton, ListItemText, MenuItem, Select, Stack, TextField, Tooltip, Typography } from '@wso2/oxygen-ui';
 import { Download, RefreshCw, X } from '@wso2/oxygen-ui-icons-react';
 import type { JSX } from 'react';
-import type { ComponentLogsRequest, LogRow, LogsRequest } from '../../types/logs';
+import type { ComponentLogsRequest, GatewayLogsRequest, LogRow, LogsRequest } from '../../types/logs';
 import SearchField from '../SearchField';
 import type { LogsFiltersState } from '../../hooks/useLogsFilters';
+import type { GatewayLogKindFilter } from '../../types/logs';
 import { LOG_LEVELS, TIME_PRESETS, downloadLogs } from '../../utils/logs';
 
 export interface LogsFiltersProps {
@@ -32,12 +33,35 @@ export interface LogsFiltersProps {
   /** Current fetched logs — used for the download button */
   logs: LogRow[];
   /** Disables the Refresh button until a valid request can be built */
-  logsRequest: LogsRequest | ComponentLogsRequest | null;
+  logsRequest: LogsRequest | ComponentLogsRequest | GatewayLogsRequest | null;
   onRefetch: () => void;
+  /** Adds the gateway-only controls: which lines to show, and whether to drop health probes. */
+  gatewayControls?: boolean;
 }
 
-export default function LogsFilters({ filters, environments, logs, logsRequest, onRefetch }: LogsFiltersProps): JSX.Element {
-  const { envFilter, setEnvFilter, levelFilter, setLevelFilter, timePreset, setTimePreset, customStart, setCustomStart, customEnd, setCustomEnd, sortDir, setSortDir, searchPhrase, setSearchPhrase, autoFetch, setAutoFetch } = filters;
+export default function LogsFilters({ filters, environments, logs, logsRequest, onRefetch, gatewayControls = false }: LogsFiltersProps): JSX.Element {
+  const {
+    envFilter,
+    setEnvFilter,
+    levelFilter,
+    setLevelFilter,
+    timePreset,
+    setTimePreset,
+    customStart,
+    setCustomStart,
+    customEnd,
+    setCustomEnd,
+    sortDir,
+    setSortDir,
+    searchPhrase,
+    setSearchPhrase,
+    autoFetch,
+    setAutoFetch,
+    kindFilter,
+    setKindFilter,
+    hideHealthChecks,
+    setHideHealthChecks,
+  } = filters;
 
   return (
     <>
@@ -128,6 +152,20 @@ export default function LogsFilters({ filters, environments, logs, logsRequest, 
           <MenuItem value="desc">Newest first</MenuItem>
           <MenuItem value="asc">Oldest first</MenuItem>
         </Select>
+
+        {gatewayControls && (
+          <Select value={kindFilter} onChange={(e) => setKindFilter(e.target.value as GatewayLogKindFilter)} size="small" sx={{ minWidth: 150 }} inputProps={{ 'aria-label': 'Gateway log kind' }}>
+            <MenuItem value="all">All Gateway Logs</MenuItem>
+            <MenuItem value="access">Requests</MenuItem>
+            <MenuItem value="operational">Gateway Activity</MenuItem>
+          </Select>
+        )}
+
+        {gatewayControls && (
+          <Tooltip title="Kubernetes probes the gateway every few seconds, and each probe is logged as a request">
+            <FormControlLabel control={<Checkbox size="small" checked={hideHealthChecks} onChange={(e) => setHideHealthChecks(e.target.checked)} />} label={<Typography sx={{ fontSize: 13 }}>Hide health checks</Typography>} />
+          </Tooltip>
+        )}
 
         {/* Search */}
         <SearchField value={searchPhrase} onChange={setSearchPhrase} placeholder="Search logs..." sx={{ minWidth: 200, flex: 1 }} />

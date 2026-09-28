@@ -45,6 +45,25 @@ export interface ComponentLogsRequest {
   logType?: string;
 }
 
+/** What produced a gateway log line: one proxied request, or the gateway talking about itself. */
+export type GatewayLogKind = 'access' | 'operational';
+
+/** The kind a panel is filtering to. `all` is a query value only; it is never the kind OF a line. */
+export type GatewayLogKindFilter = GatewayLogKind | 'all';
+
+/** A gateway log query. Gateway logs carry no project or component, so the only narrowing is the path. */
+export interface GatewayLogsRequest {
+  /** Omitted for an organization-wide read; set to narrow to one environment. */
+  environmentId?: string;
+  /** Matched against the whole line, so an integration is narrowed by its endpoint's context path. */
+  searchPhrase: string;
+  logLevels: string[];
+  startTime: string;
+  endTime: string;
+  limit: number;
+  sort: 'asc' | 'desc';
+}
+
 export interface LogRow {
   timestamp: string;
   level: string;
@@ -67,4 +86,8 @@ export interface LogRow {
   componentName: string | null;
   containerName: string | null;
   podName: string | null;
+  /** Which stream a row came from. Absent on products that read component logs alone. */
+  source?: 'component' | 'gateway';
+  /** Only meaningful on a gateway row: whether the line is one proxied request or the gateway's own output. */
+  kind?: GatewayLogKind;
 }

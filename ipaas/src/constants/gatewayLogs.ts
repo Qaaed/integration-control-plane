@@ -16,11 +16,5 @@
  * under the License.
  */
 
-// TODO: implement using icp APIs
-const ni = (name: string): never => {
-  throw new Error(`[icp] logs.${name}: not implemented`);
-};
-
-export const fetchLogs = (..._args: unknown[]): never => ni('fetchLogs');
-export const fetchComponentLogs = (..._args: unknown[]): never => ni('fetchComponentLogs');
-export const fetchGatewayLogs = (..._args: unknown[]): never => ni('fetchGatewayLogs');
+/** What the observability plane keeps. A query reaching further back returns nothing for the older part. */
+export const GATEWAY_LOG_RETENTION_DAYS = 3;

@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { copyLog, DISPLAY_FIELDS, downloadLogs, filterLogLines, filterLogRows, formatValue, LEVEL_COLORS, levelColor, statusCodeColor, toLocalInput } from './logs';
+import { copyLog, DISPLAY_FIELDS, downloadLogs, filterLogLines, filterLogRows, formatValue, LEVEL_COLORS, levelColor, statusCodeColor, toLocalInput, mergeLogRows } from './logs';
 import type { LogRow } from '../types/logs';
 
 const makeLogRow = (overrides: Partial<LogRow> = {}): LogRow => ({
@@ -233,5 +233,31 @@ describe('DISPLAY_FIELDS', () => {
     expect(keys).toContain('componentName');
     expect(keys).toContain('containerName');
     expect(keys).toContain('podName');
+  });
+});
+
+describe('mergeLogRows', () => {
+  const row = (timestamp: string, source: 'component' | 'gateway'): LogRow => makeLogRow({ timestamp, logLine: `${source} ${timestamp}`, source });
+
+  const component = [row('2026-09-28T10:00:02Z', 'component'), row('2026-09-28T10:00:00Z', 'component')];
+  const gateway = [row('2026-09-28T10:00:03Z', 'gateway'), row('2026-09-28T10:00:01Z', 'gateway')];
+
+  it('interleaves both sources newest first', () => {
+    expect(mergeLogRows(component, gateway, 'desc').map((r) => r.logLine)).toEqual(['gateway 2026-09-28T10:00:03Z', 'component 2026-09-28T10:00:02Z', 'gateway 2026-09-28T10:00:01Z', 'component 2026-09-28T10:00:00Z']);
+  });
+
+  it('interleaves oldest first when the panel is sorted ascending', () => {
+    expect(mergeLogRows(component, gateway, 'asc').map((r) => r.source)).toEqual(['component', 'gateway', 'component', 'gateway']);
+  });
+
+  // Returning the other array keeps a caller's memoized identity stable while one source is empty.
+  it('returns the other list untouched when one side is empty', () => {
+    expect(mergeLogRows(component, [], 'desc')).toBe(component);
+    expect(mergeLogRows([], gateway, 'desc')).toBe(gateway);
+  });
+
+  it('sorts a row with an unreadable timestamp last', () => {
+    const merged = mergeLogRows([row('not-a-date', 'component')], gateway, 'desc');
+    expect(merged[merged.length - 1].logLine).toBe('component not-a-date');
   });
 });

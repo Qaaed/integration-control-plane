@@ -16,11 +16,17 @@
  * under the License.
  */
 
-// TODO: implement using icp APIs
-const ni = (name: string): never => {
-  throw new Error(`[icp] logs.${name}: not implemented`);
-};
+/** Every chip in a log row is the same monospace pill; only its colours and weight differ. */
+export const logChipSx = (bgcolor: string, color: string, fontWeight = 700) =>
+  ({
+    fontFamily: 'monospace',
+    fontSize: 10,
+    height: 18,
+    mr: 1,
+    bgcolor,
+    color,
+    fontWeight,
+  }) as const;
 
-export const fetchLogs = (..._args: unknown[]): never => ni('fetchLogs');
-export const fetchComponentLogs = (..._args: unknown[]): never => ni('fetchComponentLogs');
-export const fetchGatewayLogs = (..._args: unknown[]): never => ni('fetchGatewayLogs');
+/** The gateway's own palette, so a gateway row is distinguishable at a glance from the integration's. */
+export const GATEWAY_CHIP_COLORS = { bgcolor: '#e8eaf6', color: '#283593' } as const;

@@ -19,7 +19,7 @@
 // logsApiUrl is a full URL passed by callers; split into origin + path for createHttpClient.
 // A static named client is deferred until callers are refactored (same pattern as alertingClient).
 import { createHttpClient } from './httpClients';
-import type { LogsRequest, ComponentLogsRequest, LogRow } from '../../types/logs';
+import type { LogsRequest, ComponentLogsRequest, GatewayLogsRequest, LogRow } from '../../types/logs';
 
 interface Column {
   name: string;
@@ -71,4 +71,9 @@ export async function fetchLogs(req: LogsRequest, logsApiUrl: string): Promise<L
 
 export async function fetchComponentLogs(req: ComponentLogsRequest, logsApiUrl: string): Promise<LogRow[]> {
   return postLogs(logsApiUrl, req);
+}
+
+// Gateway logs come from the wso2cloud observability proxy, which the Choreo logging API has no equivalent for.
+export function fetchGatewayLogs(_req: GatewayLogsRequest): Promise<LogRow[]> {
+  throw new Error('[wip] logs.fetchGatewayLogs: not implemented');
 }
