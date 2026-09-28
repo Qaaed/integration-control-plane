@@ -18,7 +18,7 @@
 
 /** Telling a proxied request apart from the gateway talking about itself, and reading the request out of it. */
 
-import type { GatewayLogKind } from '../types/logs';
+import type { GatewayLogKind, GatewayLogKindFilter, LogRow } from '../types/logs';
 
 /** One proxied request, as the gateway's access log records it. Null fields are ones the line omitted. */
 export interface AccessLogFields {
@@ -118,4 +118,22 @@ export function endpointContextPath(apiContext?: string | null, url?: string | n
   } catch {
     return '';
   }
+}
+
+export interface GatewayRowFilter {
+  kind: GatewayLogKindFilter;
+  hideHealthChecks: boolean;
+  /** Narrows the loaded rows, because the query's own searchPhrase already carries the endpoint's path. */
+  searchPhrase?: string;
+}
+
+/** Runs after the fetch: the log backend can neither classify a line nor exclude a path. */
+export function filterGatewayRows(rows: LogRow[], { kind, hideHealthChecks, searchPhrase = '' }: GatewayRowFilter): LogRow[] {
+  const phrase = searchPhrase.trim().toLowerCase();
+  if (kind === 'all' && !hideHealthChecks && !phrase) return rows;
+  return rows.filter((row) => {
+    if (kind !== 'all' && row.kind !== kind) return false;
+    if (hideHealthChecks && isHealthProbeLine(row.logLine)) return false;
+    return !phrase || row.logLine.toLowerCase().includes(phrase);
+  });
 }

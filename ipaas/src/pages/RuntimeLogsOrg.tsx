@@ -27,7 +27,7 @@ import { GATEWAY_LOG_RETENTION_DAYS } from '../constants/gatewayLogs';
 import { useInfiniteGatewayLogs, useVisibleLogs } from '../hooks/useLogs';
 import { useLogsFilters } from '../hooks/useLogsFilters';
 import type { GatewayLogsRequest } from '../types/logs';
-import { isHealthProbeLine } from '../utils/gatewayLogs';
+import { filterGatewayRows } from '../utils/gatewayLogs';
 import { AUTO_FETCH_INTERVAL, PAGE_SIZE } from '../utils/logs';
 
 /** The organization's API gateway logs. The data has no project or component dimension, so this reads all of it. */
@@ -40,11 +40,7 @@ export default function RuntimeLogsOrg(): JSX.Element {
   const { data, isLoading, error, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } = useInfiniteGatewayLogs(logsRequest, autoFetch ? AUTO_FETCH_INTERVAL : false);
   const rows = useVisibleLogs(data, { levels: levelFilter });
 
-  // After the fetch: the backend can neither classify a line nor exclude a path, so a page can shrink here.
-  const logs = useMemo(() => {
-    const byKind = kindFilter === 'all' ? rows : rows.filter((r) => r.kind === kindFilter);
-    return hideHealthChecks ? byKind.filter((r) => !isHealthProbeLine(r.logLine)) : byKind;
-  }, [rows, kindFilter, hideHealthChecks]);
+  const logs = useMemo(() => filterGatewayRows(rows, { kind: kindFilter, hideHealthChecks }), [rows, kindFilter, hideHealthChecks]);
 
   const beyondRetention = Date.now() - new Date(startTime).getTime() > GATEWAY_LOG_RETENTION_DAYS * 24 * 3600_000;
 

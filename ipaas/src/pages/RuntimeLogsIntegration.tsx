@@ -25,6 +25,7 @@ import { useComponentByHandler } from '../hooks/useComponents';
 import { useEnvironments, useAllEnvironments } from '../hooks/useEnvironments';
 import { useInfiniteComponentLogs, useInfiniteGatewayLogs, useVisibleLogs } from '../hooks/useLogs';
 import { useGatewayLogScope } from '../hooks/useGatewayLogScope';
+import { filterGatewayRows } from '../utils/gatewayLogs';
 import { mergeLogRows } from '../utils/logs';
 import type { ComponentLogsRequest, GatewayLogsRequest } from '../types/logs';
 import { choreologgingComponentLogsApiUrl, choreologgingComponentGatewayLogsApiUrl } from '../config/runtimeConfig';
@@ -43,7 +44,7 @@ import { broaden, resourceUrl, type ComponentScope } from '../nav';
 
 export default function RuntimeLogsIntegration(scope: ComponentScope): JSX.Element {
   const filters = useLogsFilters();
-  const { envFilter, levelFilter, sortDir, searchPhrase, autoFetch, startTime, endTime } = filters;
+  const { envFilter, levelFilter, sortDir, searchPhrase, autoFetch, startTime, endTime, kindFilter, hideHealthChecks } = filters;
 
   const { data: orgs, isLoading: loadingOrgs } = useOrgs();
   const { data: projects, isLoading: loadingProjects } = useProjectsByOrg(scope.org);
@@ -101,6 +102,7 @@ export default function RuntimeLogsIntegration(scope: ComponentScope): JSX.Eleme
   const {
     data: gatewayData,
     isLoading: loadingGateway,
+    error: gatewayError,
     hasNextPage: hasMoreGateway,
     isFetchingNextPage: fetchingMoreGateway,
     fetchNextPage: fetchMoreGateway,
@@ -108,7 +110,10 @@ export default function RuntimeLogsIntegration(scope: ComponentScope): JSX.Eleme
   } = useInfiniteGatewayLogs(gatewayRequest, autoFetch ? AUTO_FETCH_INTERVAL : false);
 
   const componentLogs = useVisibleLogs(data, { levels: levelFilter });
-  const gatewayLogs = useVisibleLogs(gatewayData, { levels: levelFilter });
+  const gatewayRows = useVisibleLogs(gatewayData, { levels: levelFilter });
+
+  // The query's searchPhrase carries the endpoint's path, so the user's own phrase narrows here instead.
+  const gatewayLogs = useMemo(() => filterGatewayRows(gatewayRows, { kind: kindFilter, hideHealthChecks, searchPhrase }), [gatewayRows, kindFilter, hideHealthChecks, searchPhrase]);
 
   // Merged for display only: a shared cursor would step past rows the other source had not fetched.
   const logs = useMemo(() => (gateway.available ? mergeLogRows(componentLogs, gatewayLogs, sortDir) : componentLogs), [gateway.available, componentLogs, gatewayLogs, sortDir]);
@@ -157,17 +162,18 @@ export default function RuntimeLogsIntegration(scope: ComponentScope): JSX.Eleme
               gateway.available
                 ? [
                     { label: 'application', count: componentLogs.length, hasMore: hasNextPage },
-                    { label: 'gateway', count: gatewayLogs.length, hasMore: hasMoreGateway },
+                    { label: 'gateway', count: gatewayRows.length, hasMore: hasMoreGateway },
                   ]
                 : []
             }
+            clientFiltered={gateway.available && (kindFilter !== 'all' || hideHealthChecks || searchPhrase !== '')}
           />
           <LogsPanel
             items={logs}
             getKey={(l, i) => `${i}-${l.timestamp}-${l.logLine.slice(0, 50)}`}
             renderRow={(l, ex, tg) => <LogEntry log={l} expanded={ex} onToggle={tg} envName={primaryEnv?.name} />}
             isLoading={isLoading || loadingGateway}
-            error={error}
+            error={error ?? gatewayError}
             hasNextPage={hasNextPage || hasMoreGateway}
             isFetchingNextPage={isFetchingNextPage || fetchingMoreGateway}
             onRefetch={refetchAll}

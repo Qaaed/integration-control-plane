@@ -187,7 +187,8 @@ const MATRIX: Matrix = {
   deploy: { segment: 'deploy', pages: { organizations: OrgDeploy, projects: ProjectDeploy, components: Deploy } },
   // Hidden on cloud; the matrix slot still needs a page, so it redirects.
   alerts: { segment: 'alerts', pages: { components: IS_CLOUD ? HiddenIntegrationPage : Alerts } },
-  logs: { segment: 'logs', pages: { organizations: RuntimeLogsOrg, projects: RuntimeLogsProject, components: RuntimeLogsIntegration } },
+  // Gateway logs come from the wso2cloud observability proxy, which the other products have no equivalent for.
+  logs: { segment: 'logs', pages: { organizations: IS_CLOUD ? RuntimeLogsOrg : HiddenOrgPage, projects: RuntimeLogsProject, components: RuntimeLogsIntegration } },
 
   environments: { segment: 'environments', pages: { organizations: Environments, projects: Environments } },
   // Cloud hides org and project Access Control; the matrix slots still need a page, so they redirect.

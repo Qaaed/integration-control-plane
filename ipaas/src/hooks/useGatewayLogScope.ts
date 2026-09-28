@@ -18,6 +18,7 @@
 
 import { useMemo } from 'react';
 import { useComponentDeployment, useEnvEndpoints } from './useDeployments';
+import { IS_CLOUD } from '../features';
 import { endpointContextPath } from '../utils/gatewayLogs';
 import type { ComponentDetail } from '../types/component';
 
@@ -25,7 +26,7 @@ import type { ComponentDetail } from '../types/component';
 export interface GatewayLogScope {
   /** The endpoint's context path, matched against the log line — the only narrowing the log backend offers. */
   contextPath: string;
-  /** False when nothing is exposed through the gateway — an automation, or an endpoint not deployed yet. */
+  /** False when nothing is exposed through the gateway, or on a product with no observability proxy. */
   available: boolean;
   isLoading: boolean;
 }
@@ -37,9 +38,9 @@ export function useGatewayLogScope(orgHandler: string, orgUuid: string, componen
   }, [component]);
 
   // The endpoint is the signal, not the type: wire type names differ from the console's vocabulary.
-  const { data: deployment, isLoading: loadingDeployment } = useComponentDeployment(orgHandler, orgUuid, component?.id ?? '', versionId, environmentId);
+  const { data: deployment, isLoading: loadingDeployment } = useComponentDeployment(IS_CLOUD ? orgHandler : '', orgUuid, component?.id ?? '', versionId, environmentId);
   const releaseId = deployment?.releaseId ?? '';
-  const { data: endpoints = [], isLoading: loadingEndpoints } = useEnvEndpoints(component?.id ?? '', versionId, releaseId);
+  const { data: endpoints = [], isLoading: loadingEndpoints } = useEnvEndpoints(IS_CLOUD ? (component?.id ?? '') : '', versionId, releaseId);
 
   // The public URL is the one a caller uses, so its path is the context the access log records.
   const contextPath = useMemo(() => {
@@ -47,5 +48,5 @@ export function useGatewayLogScope(orgHandler: string, orgUuid: string, componen
     return endpoint ? endpointContextPath(endpoint.apiContext, endpoint.publicUrl ?? endpoint.organizationUrl ?? endpoint.invokeUrl) : '';
   }, [endpoints]);
 
-  return { contextPath, available: contextPath !== '', isLoading: loadingDeployment || loadingEndpoints };
+  return { contextPath, available: IS_CLOUD && contextPath !== '', isLoading: loadingDeployment || loadingEndpoints };
 }

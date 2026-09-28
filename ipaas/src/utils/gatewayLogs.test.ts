@@ -17,7 +17,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { classifyGatewayLine, endpointContextPath, isHealthProbeLine, parseAccessLine } from './gatewayLogs';
+import type { LogRow } from '../types/logs';
+import { classifyGatewayLine, endpointContextPath, filterGatewayRows, isHealthProbeLine, parseAccessLine } from './gatewayLogs';
 
 // Taken from a DEV gateway: the apip gateway tags every line `[rtr]` and logs abbreviated keys.
 const RTR_ACCESS_LINE =
@@ -147,5 +148,31 @@ describe('endpointContextPath', () => {
     ['a URL that will not parse', null, 'not a url', ''],
   ])('reads %s', (_label, apiContext, url, expected) => {
     expect(endpointContextPath(apiContext, url)).toBe(expected);
+  });
+});
+
+describe('filterGatewayRows', () => {
+  const row = (logLine: string, kind: 'access' | 'operational'): LogRow => ({ logLine, kind, source: 'gateway' }) as LogRow;
+  const rows = [row(RTR_ACCESS_LINE, 'access'), row('[rtr] ' + JSON.stringify({ meth: 'GET', path: '/_gateway-health/ready', respCd: 200, t: 'x', ua: 'kube-probe/1.33' }), 'access'), row(RTR_OPERATIONAL_LINE, 'operational')];
+
+  // Returning the same array keeps a caller's memoized identity stable.
+  it('returns the rows untouched when nothing narrows them', () => {
+    expect(filterGatewayRows(rows, { kind: 'all', hideHealthChecks: false })).toBe(rows);
+  });
+
+  it('keeps only the requested kind', () => {
+    expect(filterGatewayRows(rows, { kind: 'operational', hideHealthChecks: false })).toHaveLength(1);
+    expect(filterGatewayRows(rows, { kind: 'access', hideHealthChecks: false })).toHaveLength(2);
+  });
+
+  it('drops health probes without dropping real requests', () => {
+    const kept = filterGatewayRows(rows, { kind: 'access', hideHealthChecks: true });
+    expect(kept).toHaveLength(1);
+    expect(kept[0].logLine).toBe(RTR_ACCESS_LINE);
+  });
+
+  it('narrows by a phrase, case-insensitively', () => {
+    expect(filterGatewayRows(rows, { kind: 'all', hideHealthChecks: false, searchPhrase: 'GREETING' })).toHaveLength(1);
+    expect(filterGatewayRows(rows, { kind: 'all', hideHealthChecks: false, searchPhrase: '   ' })).toBe(rows);
   });
 });
