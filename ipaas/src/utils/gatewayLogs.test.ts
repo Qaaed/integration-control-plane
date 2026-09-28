@@ -174,6 +174,12 @@ describe('filterGatewayRows', () => {
     expect(filterGatewayRows(rows, { hideHealthChecks: false, searchPhrase: '   ' })).toBe(rows);
   });
 
+  it('matches a request on its own path, not on an upstream path that carries the context', () => {
+    const upstreamOnly = row('[rtr] ' + JSON.stringify({ meth: 'GET', path: '/other-api/greeting', upPath: '/hello-world-service-endpoint-90-37b21ad5', respCd: 200, t: 'x' }));
+    const kept = filterGatewayRows([...rows, upstreamOnly], { hideHealthChecks: false, contextPath: '/hello-world-service-endpoint-90-37b21ad5' });
+    expect(kept.map((r) => r.logLine)).toEqual([RTR_ACCESS_LINE]);
+  });
+
   it('keeps only lines carrying the context path at a path boundary', () => {
     const lookalike = row('[rtr] ' + JSON.stringify({ meth: 'GET', path: '/hello-world-service-endpoint-90-37b21ad5-v2/greeting', respCd: 200, t: 'x' }));
     const kept = filterGatewayRows([...rows, lookalike], { hideHealthChecks: false, contextPath: '/hello-world-service-endpoint-90-37b21ad5' });

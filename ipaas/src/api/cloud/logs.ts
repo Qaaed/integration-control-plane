@@ -194,6 +194,9 @@ export async function fetchGatewayLogs(req: GatewayLogsRequest): Promise<Gateway
     searchPhrase: req.searchPhrase,
   });
   const rows = entries.filter((entry) => isGatewayContainer(entry.metadata?.containerName)).map((entry) => ({ ...toLogRow(entry), source: 'gateway' as const, request: parseAccessLine(entry.log ?? '') }));
-  const nextCursor = entries.length >= req.limit ? entries[entries.length - 1]?.timestamp : undefined;
+  if (entries.length < req.limit) return { rows };
+  // A full page is only continued from its last timestamp; without one the rest would be skipped silently.
+  const nextCursor = entries[entries.length - 1]?.timestamp;
+  if (!nextCursor) throw new Error('Gateway log page ended on an entry with no timestamp, so older lines cannot be reached.');
   return { rows, nextCursor };
 }

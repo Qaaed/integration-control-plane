@@ -96,6 +96,11 @@ export default function LogsPanel<T>({
     if (paginated && items.length === 0 && hasNextPage && !isFetchingNextPage) onFetchNextPage?.();
   }, [paginated, items.length, hasNextPage, isFetchingNextPage, onFetchNextPage]);
 
+  // A page that filters down to a few rows never fills the panel, so no scroll would ever ask for the next one.
+  useEffect(() => {
+    if (paginated) handleScroll();
+  }, [paginated, items.length, handleScroll]);
+
   if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', my: 6 }}>

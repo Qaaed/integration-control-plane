@@ -102,6 +102,7 @@ export default function RuntimeLogsIntegration(scope: ComponentScope): JSX.Eleme
 
   const {
     data: gatewayData,
+    isLoading: loadingGateway,
     error: gatewayError,
     hasNextPage: hasMoreGateway,
     isFetchingNextPage: fetchingMoreGateway,
@@ -117,17 +118,24 @@ export default function RuntimeLogsIntegration(scope: ComponentScope): JSX.Eleme
 
   // Merged for display only: a shared cursor would step past rows the other source had not fetched.
   const logs = useMemo(() => (gateway.available ? selectLogSources(componentLogs, gatewayLogs, sourceFilter, sortDir) : componentLogs), [gateway.available, componentLogs, gatewayLogs, sourceFilter, sortDir]);
-  const statusFailure = error ? "Couldn't load runtime logs" : gateway.available && gatewayError ? GATEWAY_LOGS_FAILED : undefined;
+
+  const showsComponent = !gateway.available || sourceFilter !== 'gateway';
+  const showsGateway = gateway.available && sourceFilter !== 'component';
+  const componentFailed = showsComponent && !!error;
+  const gatewayFailed = showsGateway && !!gatewayError;
+  // One failed source leaves the other's rows on screen; the panel's error state is for when nothing selected loaded.
+  const panelError = (componentFailed || !showsComponent) && (gatewayFailed || !showsGateway) ? (componentFailed ? error : gatewayError) : null;
+  // Only while nothing is on screen yet, so a source starting later never blanks rows already shown.
+  const panelLoading = logs.length === 0 && ((showsComponent && isLoading) || (showsGateway && loadingGateway));
+  const statusFailure = componentFailed && gatewayFailed ? "Couldn't load logs" : componentFailed ? "Couldn't load runtime logs" : gatewayFailed ? GATEWAY_LOGS_FAILED : undefined;
 
   // Gateway rows only: the integration's own logs outlive the gateway's, so the notice would misinform.
-  const beyondRetention = gateway.available && startsBeyondGatewayRetention(startTime);
+  const beyondRetention = showsGateway && startsBeyondGatewayRetention(startTime);
 
   const refetchAll = (): void => {
     void refetch();
     if (gateway.available) void refetchGateway();
   };
-  const showsComponent = !gateway.available || sourceFilter !== 'gateway';
-  const showsGateway = gateway.available && sourceFilter !== 'component';
   const fetchNextAll = (): void => {
     if (showsComponent && hasNextPage) void fetchNextPage();
     if (showsGateway && hasMoreGateway) void fetchMoreGateway();
@@ -165,9 +173,8 @@ export default function RuntimeLogsIntegration(scope: ComponentScope): JSX.Eleme
             items={logs}
             getKey={(l, i) => `${i}-${l.timestamp}-${l.logLine.slice(0, 50)}`}
             renderRow={(l, ex, tg) => <LogEntry log={l} expanded={ex} onToggle={tg} envName={primaryEnv?.name} />}
-            // Gated on the integration's own logs alone: the gateway query starts later and must not blank rows already shown.
-            isLoading={isLoading}
-            error={error}
+            isLoading={panelLoading}
+            error={panelError}
             hasNextPage={(showsComponent && hasNextPage) || (showsGateway && hasMoreGateway)}
             isFetchingNextPage={isFetchingNextPage || fetchingMoreGateway}
             onRefetch={refetchAll}

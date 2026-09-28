@@ -24,3 +24,13 @@ export const statusDotSx = (color: string) =>
     bgcolor: color,
     flexShrink: 0,
   }) as const;
+
+// The dot's colour and tooltip reach sighted users only, so the failure is also spoken.
+export const visuallyHiddenSx = {
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  overflow: 'hidden',
+  clip: 'rect(0 0 0 0)',
+  whiteSpace: 'nowrap',
+} as const;

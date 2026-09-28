@@ -131,13 +131,21 @@ export interface GatewayRowFilter {
   contextPath?: string;
 }
 
+// A request line is matched on its own path, so an upstream path or header that happens to carry the context cannot pass.
+function isUnderContextPath(row: LogRow, contextPath: string): boolean {
+  if (!contextPath) return true;
+  const path = row.request?.path;
+  if (path == null) return mentionsContextPath(row.logLine, contextPath);
+  return path === contextPath || path.startsWith(`${contextPath}/`) || path.startsWith(`${contextPath}?`);
+}
+
 /** Runs after the fetch: the log backend can neither classify a line nor exclude a path. */
 export function filterGatewayRows(rows: LogRow[], { hideHealthChecks, searchPhrase = '', contextPath = '' }: GatewayRowFilter): LogRow[] {
   const phrase = searchPhrase.trim().toLowerCase();
   if (!hideHealthChecks && !phrase && !contextPath) return rows;
   return rows.filter((row) => {
     if (hideHealthChecks && isHealthProbe(row.request)) return false;
-    if (!mentionsContextPath(row.logLine, contextPath)) return false;
+    if (!isUnderContextPath(row, contextPath)) return false;
     return !phrase || row.logLine.toLowerCase().includes(phrase);
   });
 }

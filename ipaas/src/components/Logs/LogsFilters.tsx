@@ -170,7 +170,7 @@ export default function LogsFilters({ filters, environments, logs, logsRequest, 
         )}
       </Stack>
 
-      <Stack direction="row" gap={1.5} sx={{ mb: 1 }} alignItems="center">
+      <Stack direction="row" gap={1.5} sx={{ mb: 1 }} flexWrap="wrap" alignItems="center">
         <SearchField value={searchPhrase} onChange={setSearchPhrase} placeholder="Search logs..." sx={{ minWidth: 200, flex: 1 }} />
 
         <FormControlLabel control={<Checkbox checked={autoFetch} onChange={(_, c) => setAutoFetch(c)} size="small" />} label="Auto Fetch" sx={{ mr: 0, whiteSpace: 'nowrap' }} slotProps={{ typography: { variant: 'body2' } }} />

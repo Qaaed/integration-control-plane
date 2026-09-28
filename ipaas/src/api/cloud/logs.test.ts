@@ -185,4 +185,10 @@ describe('fetchGatewayLogs', () => {
     expect((await fetchGatewayLogs(gatewayRequest(2))).nextCursor).toBe('t1');
     expect((await fetchGatewayLogs(gatewayRequest(3))).nextCursor).toBeUndefined();
   });
+
+  it('fails a full page whose last entry has no timestamp instead of ending paging silently', async () => {
+    post.mockResolvedValue({ logs: [entry('gateway-runtime', 't2'), { log: 'line', metadata: { containerName: 'main' } }] });
+
+    await expect(fetchGatewayLogs(gatewayRequest(2))).rejects.toThrow(/no timestamp/);
+  });
 });

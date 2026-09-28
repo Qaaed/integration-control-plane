@@ -18,7 +18,7 @@
 
 import { Box, Stack, Tooltip, Typography } from '@wso2/oxygen-ui';
 import type { JSX } from 'react';
-import { statusDotSx } from './LogsStatus.styles';
+import { statusDotSx, visuallyHiddenSx } from './LogsStatus.styles';
 
 export interface LogsStatusProps {
   /** Rows on screen, after every filter. */
@@ -30,12 +30,17 @@ export interface LogsStatusProps {
 
 export default function LogsStatus({ count, live, failure }: LogsStatusProps): JSX.Element {
   return (
-    <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 1, mt: 1.5 }}>
+    <Stack direction="row" alignItems="center" gap={1} role="status" aria-live="polite" sx={{ mb: 1, mt: 1.5 }}>
       <Tooltip title={failure ?? (live ? 'Refreshing automatically' : 'Auto fetch is off')}>
-        <Box component="span" role="status" aria-label={failure ?? 'Logs are loading normally'} sx={statusDotSx(failure ? 'error.main' : 'success.main')} />
+        <Box component="span" aria-hidden sx={statusDotSx(failure ? 'error.main' : 'success.main')} />
       </Tooltip>
       <Typography variant="body2" color="text.secondary">
         {live ? 'Live Logs' : 'Logs'} | {count} {count === 1 ? 'line' : 'lines'}
+        {failure ? (
+          <Box component="span" sx={visuallyHiddenSx}>
+            {` — ${failure}`}
+          </Box>
+        ) : null}
       </Typography>
     </Stack>
   );
