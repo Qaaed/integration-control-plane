@@ -22,27 +22,28 @@ import LogEntry from '../components/Logs/LogEntry';
 import LogsFilters from '../components/Logs/LogsFilters';
 import LogsPageLayout from '../components/Logs/LogsPageLayout';
 import LogsNotices from '../components/Logs/LogsNotices';
+import LogsStatus from '../components/Logs/LogsStatus';
 import LogsPanel from '../components/Logs/LogsPanel';
-import { GATEWAY_LOG_RETENTION_DAYS } from '../constants/gatewayLogs';
+import { GATEWAY_LOGS_FAILED } from '../constants/gatewayLogs';
 import { useInfiniteGatewayLogs, useVisibleLogs } from '../hooks/useLogs';
 import { useLogsFilters } from '../hooks/useLogsFilters';
 import type { GatewayLogsRequest } from '../types/logs';
-import { filterGatewayRows } from '../utils/gatewayLogs';
+import { filterGatewayRows, startsBeyondGatewayRetention } from '../utils/gatewayLogs';
 import { AUTO_FETCH_INTERVAL, PAGE_SIZE } from '../utils/logs';
 
 /** The organization's API gateway logs. The data has no project or component dimension, so this reads all of it. */
 export default function RuntimeLogsOrg(): JSX.Element {
   const filters = useLogsFilters();
-  const { levelFilter, sortDir, searchPhrase, autoFetch, startTime, endTime, kindFilter, hideHealthChecks } = filters;
+  const { levelFilter, sortDir, searchPhrase, autoFetch, startTime, endTime, hideHealthChecks } = filters;
 
-  const logsRequest: GatewayLogsRequest = useMemo(() => ({ searchPhrase, logLevels: levelFilter, startTime, endTime, limit: PAGE_SIZE, sort: sortDir }), [searchPhrase, levelFilter, startTime, endTime, sortDir]);
+  const logsRequest: GatewayLogsRequest = useMemo(() => ({ searchPhrase, startTime, endTime, limit: PAGE_SIZE, sort: sortDir }), [searchPhrase, startTime, endTime, sortDir]);
 
   const { data, isLoading, error, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } = useInfiniteGatewayLogs(logsRequest, autoFetch ? AUTO_FETCH_INTERVAL : false);
   const rows = useVisibleLogs(data, { levels: levelFilter });
 
-  const logs = useMemo(() => filterGatewayRows(rows, { kind: kindFilter, hideHealthChecks }), [rows, kindFilter, hideHealthChecks]);
+  const logs = useMemo(() => filterGatewayRows(rows, { hideHealthChecks }), [rows, hideHealthChecks]);
 
-  const beyondRetention = Date.now() - new Date(startTime).getTime() > GATEWAY_LOG_RETENTION_DAYS * 24 * 3600_000;
+  const beyondRetention = startsBeyondGatewayRetention(startTime);
 
   return (
     <LogsPageLayout
@@ -50,7 +51,8 @@ export default function RuntimeLogsOrg(): JSX.Element {
       filtersElement={<LogsFilters filters={filters} environments={[]} logs={logs} logsRequest={logsRequest} onRefetch={refetch} gatewayControls />}
       logPanelElement={
         <Stack sx={{ minHeight: 0, flex: 1 }}>
-          <LogsNotices beyondRetention={beyondRetention} loaded={[{ label: 'gateway', count: rows.length, hasMore: hasNextPage }]} clientFiltered={kindFilter !== 'all' || hideHealthChecks} />
+          <LogsNotices beyondRetention={beyondRetention} />
+          <LogsStatus count={logs.length} live={autoFetch} failure={error ? GATEWAY_LOGS_FAILED : undefined} />
           <LogsPanel
             items={logs}
             getKey={(l, i) => `${i}-${l.timestamp}-${l.logLine.slice(0, 50)}`}

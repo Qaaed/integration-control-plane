@@ -199,7 +199,7 @@ import type { InsightsEnvironment, ComponentInsights } from '../types/insights';
 export interface RagBackendApi {
   retrieveChunks(body: RetrieveRequestBody): Promise<RetrieveResponse>;
 }
-import type { LogsRequest, ComponentLogsRequest, GatewayLogsRequest, LogRow } from '../types/logs';
+import type { LogsRequest, ComponentLogsRequest, GatewayLogsPage, GatewayLogsRequest, LogRow } from '../types/logs';
 import type { ApiDocument, RuleAdherenceResponse, ThrottlingPolicy } from '../types/marketplace';
 import type { CreateMcpApiInput, CreatedMcpApi, McpFeatureOperation, McpProxyMetadata, CreateMcpProxyComponentInput } from '../types/mcpProxy';
 import type { OrgEntry, OrgComponentLimits, OrgSubscription, RegisterUserResponse } from '../types/org';
@@ -651,7 +651,7 @@ export interface InsightsApi {
 export interface LogsApi {
   fetchLogs(req: LogsRequest, logsApiUrl: string): Promise<LogRow[]>;
   fetchComponentLogs(req: ComponentLogsRequest, logsApiUrl: string): Promise<LogRow[]>;
-  fetchGatewayLogs(req: GatewayLogsRequest): Promise<LogRow[]>;
+  fetchGatewayLogs(req: GatewayLogsRequest): Promise<GatewayLogsPage>;
 }
 
 // ---------------------------------------------------------------------------

@@ -17,13 +17,13 @@
  */
 
 import { useMemo, useState } from 'react';
-import type { GatewayLogKindFilter } from '../types/logs';
+import type { LogSourceFilter } from '../types/logs';
 import { DEFAULT_HOURS, TIME_PRESETS, toLocalInput } from '../utils/logs';
 
 export interface LogsFiltersState {
-  /** Gateway panels only: which gateway lines to show. */
-  kindFilter: GatewayLogKindFilter;
-  setKindFilter: (v: GatewayLogKindFilter) => void;
+  /** Panels that merge runtime and gateway logs: which stream to show. */
+  sourceFilter: LogSourceFilter;
+  setSourceFilter: (v: LogSourceFilter) => void;
   /** Gateway panels only: off by default, so the first view shows everything the gateway handled. */
   hideHealthChecks: boolean;
   setHideHealthChecks: (v: boolean) => void;
@@ -57,7 +57,7 @@ export function useLogsFilters(): LogsFiltersState {
   const [searchPhrase, setSearchPhrase] = useState('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [autoFetch, setAutoFetch] = useState(true);
-  const [kindFilter, setKindFilter] = useState<GatewayLogKindFilter>('all');
+  const [sourceFilter, setSourceFilter] = useState<LogSourceFilter>('all');
   const [hideHealthChecks, setHideHealthChecks] = useState(false);
 
   const { startTime, endTime } = useMemo(() => {
@@ -82,13 +82,13 @@ export function useLogsFilters(): LogsFiltersState {
     setLevelFilter([]);
     setSearchPhrase('');
     setTimePreset('Past 24 hours');
-    setKindFilter('all');
+    setSourceFilter('all');
     setHideHealthChecks(false);
   };
 
   return {
-    kindFilter,
-    setKindFilter,
+    sourceFilter,
+    setSourceFilter,
     hideHealthChecks,
     setHideHealthChecks,
     envFilter,

@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import type { LogRow } from '../types/logs';
+import type { LogRow, LogSourceFilter } from '../types/logs';
 import type { ExecutionLogEntry } from '../types/executions';
 
 export const LOG_LEVELS = ['INFO', 'WARN', 'ERROR', 'DEBUG'] as const;
@@ -163,13 +163,21 @@ export function filterLogRows(rows: LogRow[], { levels, componentIds }: LogRowFi
   });
 }
 
+/** The rows a source filter keeps, merged in time order when both streams are shown. */
+export function selectLogSources(component: LogRow[], gateway: LogRow[], source: LogSourceFilter, sort: 'asc' | 'desc'): LogRow[] {
+  if (source === 'component') return component;
+  if (source === 'gateway') return gateway;
+  return mergeLogRows(component, gateway, sort);
+}
+
 /** Two sources as one list; a row whose timestamp will not parse sorts last rather than first. */
 export function mergeLogRows(a: LogRow[], b: LogRow[], sort: 'asc' | 'desc'): LogRow[] {
   if (b.length === 0) return a;
   if (a.length === 0) return b;
   const at = (row: LogRow): number => {
     const ms = new Date(row.timestamp).getTime();
-    return isNaN(ms) ? (sort === 'desc' ? -Infinity : Infinity) : ms;
+    // Finite sentinels: two infinities subtract to NaN, which leaves sort's order unspecified.
+    return isNaN(ms) ? (sort === 'desc' ? Number.MIN_SAFE_INTEGER : Number.MAX_SAFE_INTEGER) : ms;
   };
   return [...a, ...b].sort((x, y) => (sort === 'desc' ? at(y) - at(x) : at(x) - at(y)));
 }

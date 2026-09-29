@@ -22,7 +22,7 @@ import type { JSX } from 'react';
 import type { ComponentLogsRequest, GatewayLogsRequest, LogRow, LogsRequest } from '../../types/logs';
 import SearchField from '../SearchField';
 import type { LogsFiltersState } from '../../hooks/useLogsFilters';
-import type { GatewayLogKindFilter } from '../../types/logs';
+import type { LogSourceFilter } from '../../types/logs';
 import { LOG_LEVELS, TIME_PRESETS, downloadLogs } from '../../utils/logs';
 
 export interface LogsFiltersProps {
@@ -35,11 +35,13 @@ export interface LogsFiltersProps {
   /** Disables the Refresh button until a valid request can be built */
   logsRequest: LogsRequest | ComponentLogsRequest | GatewayLogsRequest | null;
   onRefetch: () => void;
-  /** Adds the gateway-only controls: which lines to show, and whether to drop health probes. */
+  /** Adds the health-probe toggle, for panels that show gateway lines. */
   gatewayControls?: boolean;
+  /** Adds the runtime/gateway selector, for panels that merge both streams. */
+  sourceControls?: boolean;
 }
 
-export default function LogsFilters({ filters, environments, logs, logsRequest, onRefetch, gatewayControls = false }: LogsFiltersProps): JSX.Element {
+export default function LogsFilters({ filters, environments, logs, logsRequest, onRefetch, gatewayControls = false, sourceControls = false }: LogsFiltersProps): JSX.Element {
   const {
     envFilter,
     setEnvFilter,
@@ -57,8 +59,8 @@ export default function LogsFilters({ filters, environments, logs, logsRequest, 
     setSearchPhrase,
     autoFetch,
     setAutoFetch,
-    kindFilter,
-    setKindFilter,
+    sourceFilter,
+    setSourceFilter,
     hideHealthChecks,
     setHideHealthChecks,
   } = filters;
@@ -153,11 +155,11 @@ export default function LogsFilters({ filters, environments, logs, logsRequest, 
           <MenuItem value="asc">Oldest first</MenuItem>
         </Select>
 
-        {gatewayControls && (
-          <Select value={kindFilter} onChange={(e) => setKindFilter(e.target.value as GatewayLogKindFilter)} size="small" sx={{ minWidth: 150 }} inputProps={{ 'aria-label': 'Gateway log kind' }}>
-            <MenuItem value="all">All Gateway Logs</MenuItem>
-            <MenuItem value="access">Requests</MenuItem>
-            <MenuItem value="operational">Gateway Activity</MenuItem>
+        {sourceControls && (
+          <Select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value as LogSourceFilter)} size="small" sx={{ minWidth: 150 }} inputProps={{ 'aria-label': 'Log source' }}>
+            <MenuItem value="all">All Logs</MenuItem>
+            <MenuItem value="component">Runtime Logs</MenuItem>
+            <MenuItem value="gateway">Gateway Logs</MenuItem>
           </Select>
         )}
 
@@ -166,21 +168,19 @@ export default function LogsFilters({ filters, environments, logs, logsRequest, 
             <FormControlLabel control={<Checkbox size="small" checked={hideHealthChecks} onChange={(e) => setHideHealthChecks(e.target.checked)} />} label={<Typography sx={{ fontSize: 13 }}>Hide health checks</Typography>} />
           </Tooltip>
         )}
+      </Stack>
 
-        {/* Search */}
+      <Stack direction="row" gap={1.5} sx={{ mb: 1 }} flexWrap="wrap" alignItems="center">
         <SearchField value={searchPhrase} onChange={setSearchPhrase} placeholder="Search logs..." sx={{ minWidth: 200, flex: 1 }} />
 
-        {/* Auto fetch */}
         <FormControlLabel control={<Checkbox checked={autoFetch} onChange={(_, c) => setAutoFetch(c)} size="small" />} label="Auto Fetch" sx={{ mr: 0, whiteSpace: 'nowrap' }} slotProps={{ typography: { variant: 'body2' } }} />
 
-        {/* Download */}
         <Tooltip title="Download logs">
           <IconButton size="small" aria-label="Download logs" onClick={() => downloadLogs(logs)} disabled={logs.length === 0}>
             <Download size={18} />
           </IconButton>
         </Tooltip>
 
-        {/* Refresh */}
         <Button variant="outlined" size="small" onClick={onRefetch} disabled={!logsRequest} startIcon={<RefreshCw size={14} />}>
           Refresh
         </Button>

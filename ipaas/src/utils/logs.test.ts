@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { copyLog, DISPLAY_FIELDS, downloadLogs, filterLogLines, filterLogRows, formatValue, LEVEL_COLORS, levelColor, statusCodeColor, toLocalInput, mergeLogRows } from './logs';
+import { copyLog, DISPLAY_FIELDS, downloadLogs, filterLogLines, filterLogRows, formatValue, LEVEL_COLORS, levelColor, statusCodeColor, toLocalInput, mergeLogRows, selectLogSources } from './logs';
 import type { LogRow } from '../types/logs';
 
 const makeLogRow = (overrides: Partial<LogRow> = {}): LogRow => ({
@@ -259,5 +259,25 @@ describe('mergeLogRows', () => {
   it('sorts a row with an unreadable timestamp last', () => {
     const merged = mergeLogRows([row('not-a-date', 'component')], gateway, 'desc');
     expect(merged[merged.length - 1].logLine).toBe('component not-a-date');
+  });
+
+  it('keeps readable rows in order when several timestamps are unreadable', () => {
+    const merged = mergeLogRows([row('not-a-date', 'component'), ...component, row('also-not', 'component')], gateway, 'desc');
+    expect(merged.slice(0, 4).map((r) => r.timestamp)).toEqual(['2026-09-28T10:00:03Z', '2026-09-28T10:00:02Z', '2026-09-28T10:00:01Z', '2026-09-28T10:00:00Z']);
+  });
+});
+
+describe('selectLogSources', () => {
+  const row = (timestamp: string, source: 'component' | 'gateway'): LogRow => makeLogRow({ timestamp, logLine: `${source} ${timestamp}`, source });
+  const component = [row('2026-09-28T10:00:02Z', 'component')];
+  const gateway = [row('2026-09-28T10:00:03Z', 'gateway')];
+
+  it('shows one stream alone when it is selected', () => {
+    expect(selectLogSources(component, gateway, 'component', 'desc')).toBe(component);
+    expect(selectLogSources(component, gateway, 'gateway', 'desc')).toBe(gateway);
+  });
+
+  it('merges both streams for all logs', () => {
+    expect(selectLogSources(component, gateway, 'all', 'desc').map((r) => r.source)).toEqual(['gateway', 'component']);
   });
 });

@@ -38,8 +38,8 @@ vi.mock('./_client', () => ({
   seg: (s: string) => encodeURIComponent(s),
 }));
 
-import { fetchComponentLogs, fetchLogs } from './logs';
-import type { ComponentLogsRequest } from '../../types/logs';
+import { fetchComponentLogs, fetchGatewayLogs, fetchLogs } from './logs';
+import type { ComponentLogsRequest, GatewayLogsRequest } from '../../types/logs';
 
 // resolveComponentProject memoizes per component id, so every case needs its own.
 let n = 0;
@@ -164,5 +164,31 @@ describe('toLogRow provenance', () => {
     expect(row.componentName).toBeNull();
     expect(row.containerName).toBeNull();
     expect(row.podName).toBeNull();
+  });
+});
+
+describe('fetchGatewayLogs', () => {
+  const gatewayRequest = (limit: number): GatewayLogsRequest => ({ environmentId: 'Development', searchPhrase: '/greeting', startTime: '2026-09-10T00:00:00Z', endTime: '2026-09-10T01:00:00Z', limit, sort: 'desc' });
+  const entry = (containerName: string, timestamp: string) => ({ timestamp, level: 'INFO', log: 'line', metadata: { containerName } });
+
+  it('keeps only rows logged by a gateway container', async () => {
+    post.mockResolvedValue({ logs: [entry('gateway-runtime', 't3'), entry('main', 't2'), entry('gateway-controller', 't1')] });
+
+    const page = await fetchGatewayLogs(gatewayRequest(100));
+    expect(page.rows.map((r) => r.containerName)).toEqual(['gateway-runtime', 'gateway-controller']);
+    expect(page.rows.every((r) => r.source === 'gateway')).toBe(true);
+  });
+
+  it('pages from the unfiltered batch, so dropped rows do not end paging early', async () => {
+    post.mockResolvedValue({ logs: [entry('gateway-runtime', 't2'), entry('main', 't1')] });
+
+    expect((await fetchGatewayLogs(gatewayRequest(2))).nextCursor).toBe('t1');
+    expect((await fetchGatewayLogs(gatewayRequest(3))).nextCursor).toBeUndefined();
+  });
+
+  it('fails a full page whose last entry has no timestamp instead of ending paging silently', async () => {
+    post.mockResolvedValue({ logs: [entry('gateway-runtime', 't2'), { log: 'line', metadata: { containerName: 'main' } }] });
+
+    await expect(fetchGatewayLogs(gatewayRequest(2))).rejects.toThrow(/no timestamp/);
   });
 });
