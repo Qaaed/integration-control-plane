@@ -20,6 +20,7 @@ import { expect, test as setup } from '@playwright/test';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { projectNameFor } from './helpers/journey-project.js';
 import { assertUsableLifetime, buildStorageState, decodeTokenClaims, resolveToken } from './helpers/token.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -55,7 +56,8 @@ setup('seed the cloud session from a token', async ({ browser }, testInfo) => {
   const projectMatch = url.match(/\/projects\/([^/]+)/);
   if (!projectMatch) throw new Error(`Could not extract the project handle from URL: ${url}`);
 
-  await writeFile(CONTEXT_FILE, JSON.stringify({ orgHandler: claims.ouHandle, projectHandler: projectMatch[1] }));
+  // Named here, where a run begins exactly once: the journey's workers read it back, so a restarted worker keeps the name.
+  await writeFile(CONTEXT_FILE, JSON.stringify({ orgHandler: claims.ouHandle, projectHandler: projectMatch[1], fixtureProject: projectNameFor(new Date()) }));
   console.log(`Session seeded. Landed on ${url}`);
 
   await context.close();

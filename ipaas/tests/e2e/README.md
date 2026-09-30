@@ -163,25 +163,32 @@ remembering what it created.
 
 The pipeline starts a run about every half hour and a run takes nearly an hour, so two runs are
 normally in flight at once against the same organization. A run therefore never shares a project:
-group 01 creates `IPAAS-E2E-<yyMMdd-HHmm>` and uses that, and group 08 deletes it at the end.
+group 01 creates `IPAAS-E2E-<yyMMdd-HHmm>-<suffix>` and uses that, and group 08 deletes it at the
+end. The four-character suffix keeps two runs that start in the same minute apart.
 
 The name carries the minute it was created, and that is the only thing that dates it — the age on
 the project card comes from `updatedAt`, which tracks the Project resource's own conditions and does
 not move while a run fills the project with integrations, so a busy project can look untouched for
 an hour.
 
-Group **08b** then sweeps what other runs left behind: any `IPAAS-E2E-<yyMMdd-HHmm>` project older
+Setup picks the name and writes it to `.auth/cloud-context.json`, and every worker reads it from
+there. Playwright starts a fresh worker after a failed group, so a name held only in memory would
+change mid-run and the later groups would look for a project nobody created.
+
+Group **08b** then sweeps what other runs left behind: any dated `IPAAS-E2E` project older
 than **two hours** is emptied and deleted. Two hours is deliberately longer than the suite's own
 worst case — the in-cluster Job is capped at two hours — so a slow run never has its project deleted
 from under it. A project this scheme cannot date, including a hand-made `IPAAS-E2E`, is left alone:
 nothing here knows whose it is.
 
-08b is housekeeping, not a product assertion. A sweep that fails is skipped with the reason
-annotated rather than failed — the project it could not remove is simply collected by a later run,
-and a red build for it would report a problem nobody can act on.
+08b is housekeeping, not a product assertion. Each project is swept on its own, so one that cannot
+be deleted does not cost the rest their turn, and a project already mid-deletion is left to finish.
+A sweep that fails is skipped with the reason annotated rather than failed — the project it could
+not remove is simply collected by a later run, and a red build for it would report a problem nobody
+can act on.
 
 `E2E_PROJECT` points a run at an existing project by name instead of creating one, which is how a
-single group is run on its own — `E2E_PROJECT=IPAAS-E2E-260928-1321 … -g "08 clean up"` empties and
+single group is run on its own — `E2E_PROJECT=IPAAS-E2E-260928-1321-k7qz … -g "08 clean up"` empties and
 deletes that one. Without it, a group run alone acts on a project that does not exist.
 
 ### Projects

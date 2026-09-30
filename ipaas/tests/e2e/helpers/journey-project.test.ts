@@ -25,20 +25,28 @@ const OWN = projectNameFor(AT);
 
 describe('projectNameFor / projectStartedAt', () => {
   it('carries the creation minute in the name', () => {
-    expect(projectNameFor(AT)).toBe('IPAAS-E2E-260928-1003');
+    expect(projectNameFor(AT, 'k7qz')).toBe('IPAAS-E2E-260928-1003-k7qz');
+  });
+
+  it('gives two runs that start in the same minute different names', () => {
+    expect(projectNameFor(AT)).not.toBe(projectNameFor(AT));
   });
 
   it('reads back what it wrote, to the minute', () => {
     expect(projectStartedAt(projectNameFor(AT))?.toISOString()).toBe('2026-09-28T10:03:00.000Z');
   });
 
-  it.each([['IPAAS-E2E'], ['IPAAS-E2E-manual'], ['IPAAS-E2E-260928-99'], ['something-else'], ['']])('cannot date %s', (name) => {
+  it('dates a name from before the suffix existed, so it can still be swept', () => {
+    expect(projectStartedAt('IPAAS-E2E-260928-1003')?.toISOString()).toBe('2026-09-28T10:03:00.000Z');
+  });
+
+  it.each([['IPAAS-E2E'], ['IPAAS-E2E-manual'], ['IPAAS-E2E-260928-99'], ['IPAAS-E2E-260928-1003-k7qz-extra'], ['something-else'], ['']])('cannot date %s', (name) => {
     expect(projectStartedAt(name)).toBeNull();
   });
 
   it('recognises any fixture project by its prefix, dated or not', () => {
     expect(isFixtureProject('IPAAS-E2E')).toBe(true);
-    expect(isFixtureProject('IPAAS-E2E-260928-1003')).toBe(true);
+    expect(isFixtureProject('IPAAS-E2E-260928-1003-k7qz')).toBe(true);
     expect(isFixtureProject('Default Project')).toBe(false);
   });
 });

@@ -45,7 +45,7 @@ import {
   WIP_ONLY_SECTIONS,
 } from '../../helpers/journey-fixtures.js';
 import { activeProject, listFixtureProjects, STALE_AGE_MS, staleProjects, setActiveProject } from '../../helpers/journey-project.js';
-import { enterOrgHome, enterProject, enterProjectOrSkip, openProjectSettings, reseedHere } from '../../helpers/journey-session.js';
+import { enterOrgHome, enterProject, enterProjectOrSkip, openProjectSettings, projectSettingsButton, reseedHere } from '../../helpers/journey-session.js';
 import {
   agentRow,
   confirmRemoval,
@@ -993,18 +993,37 @@ test.describe('08b sweep abandoned projects @smoke', () => {
     test.setTimeout(3 * PROJECT_REMOVAL_TIMEOUT_MS);
 
     // Housekeeping, not a product assertion: a failed sweep leaves the project for the next run to collect.
+    const own = activeProject();
+    const reason = (error: unknown): string => (error instanceof Error ? error.message.split('\n')[0] : String(error));
+
+    let abandoned: string[];
     try {
       await enterOrgHome(page, orgHandler);
-      const abandoned = staleProjects(await listFixtureProjects(page), new Date(), activeProject());
-      if (abandoned.length === 0) {
-        test.info().annotations.push({ type: 'fixture', description: `no project older than ${STALE_AGE_MS / 60_000} minutes to sweep` });
-        return;
-      }
+      abandoned = staleProjects(await listFixtureProjects(page), new Date(), own);
+    } catch (error) {
+      test.skip(true, `could not read the organization's projects: ${reason(error)}`);
+      return;
+    }
 
-      for (const project of abandoned) {
+    if (abandoned.length === 0) {
+      test.info().annotations.push({ type: 'fixture', description: `no project older than ${STALE_AGE_MS / 60_000} minutes to sweep` });
+      return;
+    }
+
+    const failed: string[] = [];
+    for (const project of abandoned) {
+      // Isolated per project: one that cannot be deleted must not cost the others their turn.
+      try {
         // The helpers act on whichever project is active, so the sweep borrows the name in turn.
         setActiveProject(project);
         await enterOrgHome(page, orgHandler);
+
+        // A project already being deleted keeps its card but loses the settings button, so it cannot be opened.
+        if (!(await projectSettingsButton(page).isVisible({ timeout: 15_000 }).catch(() => false))) {
+          test.info().annotations.push({ type: 'fixture', description: `${project} is already being deleted; left to finish` });
+          continue;
+        }
+
         await openProject(page, project);
         await waitForIntegrationsToLoad(page);
         await deleteAllIntegrations(page);
@@ -1015,10 +1034,15 @@ test.describe('08b sweep abandoned projects @smoke', () => {
         await deleteProject.click();
         await confirmRemoval(page, 'Enter project name to confirm', project);
         test.info().annotations.push({ type: 'fixture', description: `swept abandoned ${project}` });
+      } catch (error) {
+        failed.push(project);
+        test.info().annotations.push({ type: 'fixture', description: `${project} could not be swept: ${reason(error)}` });
+      } finally {
+        setActiveProject(own);
       }
-    } catch (error) {
-      test.skip(true, `sweep did not finish: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`);
     }
+
+    test.skip(failed.length > 0, `left for the next run: ${failed.join(', ')}`);
   });
 });
 

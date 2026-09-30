@@ -21,6 +21,7 @@ import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { waitForOTP } from './helpers/gmail.js';
+import { projectNameFor } from './helpers/journey-project.js';
 import { fillSecret, readSecret } from './helpers/secrets.js';
 import { msUntilNextWindow, totpCode } from './helpers/totp.js';
 
@@ -227,11 +228,13 @@ setup('authenticate cloud', async ({ page }) => {
 
   await page.context().storageState({ path: AUTH_FILE });
 
+  // Named here, where a run begins exactly once: the journey's workers read it back, so a restarted worker keeps the name.
   await writeFile(
     CONTEXT_FILE,
     JSON.stringify({
       orgHandler: orgMatch[1],
       projectHandler: projectMatch[1],
+      fixtureProject: projectNameFor(new Date()),
     }),
   );
 });
