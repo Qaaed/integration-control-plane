@@ -21,6 +21,7 @@ import { IS_CLOUD } from '../features';
 
 const ACCESS_TOKEN_KEY = 'auth_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
+const ID_TOKEN_KEY = 'id_token';
 const TOKEN_EXPIRES_AT_KEY = 'token_expires_at';
 const REFRESH_TOKEN_EXPIRES_AT_KEY = 'refresh_token_expires_at';
 const REDIRECT_URL_KEY = 'redirect_url';
@@ -83,10 +84,20 @@ export function getRefreshToken(): string | null {
   return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
+// Kept only as the id_token_hint for RP-initiated logout (cloud).
+export function saveIdToken(idToken: string): void {
+  localStorage.setItem(ID_TOKEN_KEY, idToken);
+}
+
+export function getIdToken(): string | null {
+  return localStorage.getItem(ID_TOKEN_KEY);
+}
+
 export function clearTokens(): void {
   asgardeoTokenMemory = null;
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(ID_TOKEN_KEY);
   localStorage.removeItem(TOKEN_EXPIRES_AT_KEY);
   localStorage.removeItem(REFRESH_TOKEN_EXPIRES_AT_KEY);
 }

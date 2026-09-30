@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildAuthorizationUrl } from './authorizeUrl';
+import { buildAuthorizationUrl, buildLogoutUrl } from './authorizeUrl';
 
 const request = {
   clientId: 'IPAAS_CONSOLE',
@@ -45,5 +45,23 @@ describe('buildAuthorizationUrl', () => {
     const url = new URL(buildAuthorizationUrl('https://idp.example/oauth2/authorize', request));
     expect(url.searchParams.has('resource')).toBe(false);
     expect(url.searchParams.get('client_id')).toBe('IPAAS_CONSOLE');
+  });
+});
+
+describe('buildLogoutUrl', () => {
+  const logoutRequest = { clientId: 'IPAAS_CONSOLE', postLogoutRedirectUri: 'https://console.example' };
+
+  it('targets the end-session endpoint beside authorize with the id token hint', () => {
+    const url = new URL(buildLogoutUrl('https://idp.example/oauth2/authorize', { ...logoutRequest, idTokenHint: 'id.token.jwt' }));
+
+    expect(`${url.origin}${url.pathname}`).toBe('https://idp.example/oauth2/logout');
+    expect(url.searchParams.get('id_token_hint')).toBe('id.token.jwt');
+    expect(url.searchParams.get('post_logout_redirect_uri')).toBe('https://console.example');
+    expect(url.searchParams.get('client_id')).toBe('IPAAS_CONSOLE');
+  });
+
+  it('omits id_token_hint when no id token was kept', () => {
+    const url = new URL(buildLogoutUrl('https://idp.example/oauth2/authorize', { ...logoutRequest, idTokenHint: null }));
+    expect(url.searchParams.has('id_token_hint')).toBe(false);
   });
 });

@@ -40,3 +40,21 @@ export function buildAuthorizationUrl(endpoint: string, request: AuthorizationRe
   if (request.fidp) params.set('fidp', request.fidp);
   return `${endpoint}?${params}`;
 }
+
+interface LogoutRequest {
+  clientId: string;
+  postLogoutRedirectUri: string;
+  idTokenHint?: string | null;
+}
+
+// RP-initiated logout. The IdP's end-session endpoint sits beside its authorize
+// endpoint (/oauth2/authorize → /oauth2/logout), so derive it rather than add config.
+export function buildLogoutUrl(authorizeEndpoint: string, request: LogoutRequest): string {
+  const endpoint = authorizeEndpoint.replace(/\/authorize\/?$/, '/logout');
+  const params = new URLSearchParams({
+    client_id: request.clientId,
+    post_logout_redirect_uri: request.postLogoutRedirectUri,
+  });
+  if (request.idTokenHint) params.set('id_token_hint', request.idTokenHint);
+  return `${endpoint}?${params}`;
+}

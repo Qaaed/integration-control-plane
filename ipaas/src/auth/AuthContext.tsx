@@ -23,12 +23,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { loginApiUrl } from '../config/runtimeConfig';
 import { loginUrl } from '../paths';
 import { IS_CLOUD } from '../features';
-import { buildAuthorizationUrl } from './authorizeUrl';
+import { buildAuthorizationUrl, buildLogoutUrl } from './authorizeUrl';
 import {
   saveTokens,
   clearTokens,
   getAccessToken,
   getRefreshToken,
+  saveIdToken,
+  getIdToken,
   revokeToken,
   setOnAuthFailure,
   generateAndSaveOIDCState,
@@ -225,6 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
       }
       localStorage.setItem('org_handle', cloudOrgHandle);
       saveTokens({ token: asgardeoToken, expiresIn: tokenData.expires_in ?? 3600, refreshToken: tokenData.refresh_token ?? '', refreshTokenExpiresIn: 86400 });
+      if (tokenData.id_token) saveIdToken(tokenData.id_token);
       saveOidcAuthMetadata(cloudOrgHandle);
       const user: UserInfo = { userId, username, displayName, pictureUrl, isOidcUser: true, requirePasswordChange: false };
       localStorage.setItem(USER_KEY, JSON.stringify(user));
@@ -492,6 +495,25 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
   }, []);
 
   const logout = useCallback(async () => {
+    // Cloud: end the IdP (SSO) session too, or the next sign-in silently logs the
+    // user straight back in. Only local storage is cleared before the redirect —
+    // resetting React state here would re-render the /login route, whose cloud
+    // auto-redirect to /authorize would race and override this navigation.
+    if (IS_CLOUD) {
+      const { asgardeoClientId, asgardeoAuthorizeEndpoint } = window.API_CONFIG;
+      const idTokenHint = getIdToken();
+      clearTokens();
+      clearOidcAuthMetadata();
+      localStorage.removeItem(USER_KEY);
+      window.location.href = buildLogoutUrl(asgardeoAuthorizeEndpoint, {
+        clientId: asgardeoClientId,
+        postLogoutRedirectUri: window.location.origin,
+        idTokenHint,
+      });
+      // The page is unloading; never settle so callers don't navigate over the redirect.
+      return new Promise<void>(() => {});
+    }
+
     await revokeToken();
     clearTokens();
     clearOidcAuthMetadata();
