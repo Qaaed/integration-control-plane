@@ -38,14 +38,14 @@ import {
   NO_CONSUMERS,
   NO_SCHEDULE,
   PROBE_TIMEOUT_MS,
-  PROJECT,
   PROJECT_REMOVAL_TIMEOUT_MS,
   REDEPLOY_SETTLE_MS,
   REMOVAL_TIMEOUT_MS,
   SAMPLE,
   WIP_ONLY_SECTIONS,
 } from '../../helpers/journey-fixtures.js';
-import { enterOrgHome, enterProject, enterProjectOrSkip, filterToProject, openProjectSettings, projectSettingsButton, reseedHere, waitForStaleProjectRemoval } from '../../helpers/journey-session.js';
+import { activeProject, listFixtureProjects, STALE_AGE_MS, staleProjects, setActiveProject } from '../../helpers/journey-project.js';
+import { enterOrgHome, enterProject, enterProjectOrSkip, openProjectSettings, projectSettingsButton, reseedHere } from '../../helpers/journey-session.js';
 import {
   agentRow,
   confirmRemoval,
@@ -130,34 +130,19 @@ test.describe('01 fixture project @smoke', () => {
     await expect(page.getByRole('link', { name: 'Get Support on Discord' })).toHaveAttribute('href', 'https://discord.com/invite/wso2');
   });
 
-  test('IPAAS-E2E exists, created fresh or reused and emptied', async () => {
-    test.setTimeout(12 * 60_000);
+  test('this run creates a fixture project of its own', async () => {
+    test.setTimeout(4 * 60_000);
 
-    await filterToProject(page);
-
-    if (
-      await projectSettingsButton(page)
-        .isVisible({ timeout: 10_000 })
-        .catch(() => false)
-    ) {
-      // Emptied on reuse: 02 asserts the empty state, and a run whose cleanup failed leaves rows.
-      await openProject(page, PROJECT);
-      await waitForIntegrationsToLoad(page);
-      const cleared = await deleteAllIntegrations(page);
-      await expect(page.getByRole('button', { name: /^Delete / }), `${PROJECT} still lists integrations after clearing it`).toHaveCount(0, { timeout: 60_000 });
-      test.info().annotations.push({ type: 'fixture', description: `${PROJECT} already existed; reused after clearing ${cleared} integration(s)` });
-      return;
-    }
-
-    await waitForStaleProjectRemoval(page);
+    // The pipeline starts a run every half hour and a run lasts nearly an hour, so runs never share one.
+    const project = activeProject();
 
     // exact — 'Create' also prefixes 'Create an Integration' and 'Create Project'.
     await page.getByRole('button', { name: 'Create', exact: true }).click();
-    await page.getByRole('textbox', { name: 'Display Name' }).fill(PROJECT);
+    await page.getByRole('textbox', { name: 'Display Name' }).fill(project);
     await page.getByRole('button', { name: 'Create Project', exact: true }).click();
 
     const landed = await page
-      .getByRole('heading', { name: PROJECT })
+      .getByRole('heading', { name: project })
       .waitFor({ state: 'visible', timeout: 90_000 })
       .then(() => true)
       .catch(() => false);
@@ -177,12 +162,12 @@ test.describe('01 fixture project @smoke', () => {
       throw new Error(`Create Project did not land on the project. Alert: ${reason || 'none'}`);
     }
 
-    test.info().annotations.push({ type: 'fixture', description: `${PROJECT} created` });
+    test.info().annotations.push({ type: 'fixture', description: `created ${project}` });
   });
 
   test('the project opens on an overview headed by its name', async () => {
     await enterProjectOrSkip(page, orgHandler);
-    await expect(page.getByRole('heading', { name: PROJECT })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('heading', { name: activeProject() })).toBeVisible({ timeout: 60_000 });
   });
 });
 
@@ -841,7 +826,7 @@ test.describe('07 page availability @smoke', () => {
     await expectNavItems(page, ['Environments', 'Pipelines', 'Settings']);
 
     await page.getByRole('button', { name: 'Overview', exact: true }).click();
-    await expect(page.getByRole('heading', { name: PROJECT })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: activeProject() })).toBeVisible({ timeout: 30_000 });
   });
 
   test('the integration scope offers its pages, including Operate', async () => {
@@ -983,7 +968,7 @@ test.describe('08 clean up @smoke', () => {
   test('deleting the project returns to the organization home without its card', async () => {
     test.setTimeout(PROJECT_REMOVAL_TIMEOUT_MS + 3 * 60_000);
     await page.getByRole('button', { name: 'Delete Project', exact: true }).click();
-    await confirmRemoval(page, 'Enter project name to confirm', PROJECT);
+    await confirmRemoval(page, 'Enter project name to confirm', activeProject());
 
     // No success alert exists (ProjectOverview.tsx:72 navigates with state Projects.tsx:93
     // clears), so the redirect is the signal. Raced against the failure branch (:76) so a
@@ -995,7 +980,69 @@ test.describe('08 clean up @smoke', () => {
       throw new Error(`the console rejected the delete: ${(await rejected.textContent())?.trim()}`);
     }
     await expect(landed, 'the delete neither completed nor reported an error').toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(PROJECT, { exact: true }), `the ${PROJECT} card is still on the org home`).toHaveCount(0, { timeout: PROJECT_REMOVAL_TIMEOUT_MS });
+    await expect(page.getByText(activeProject(), { exact: true }), `the ${activeProject()} card is still on the org home`).toHaveCount(0, { timeout: PROJECT_REMOVAL_TIMEOUT_MS });
+  });
+});
+
+// 08b — the projects other runs left behind, which nothing else would ever remove
+
+test.describe('08b sweep abandoned projects @smoke', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  test('projects older than the abandonment age are removed with their integrations', async () => {
+    test.setTimeout(3 * PROJECT_REMOVAL_TIMEOUT_MS);
+
+    // Housekeeping, not a product assertion: a failed sweep leaves the project for the next run to collect.
+    const own = activeProject();
+    const reason = (error: unknown): string => (error instanceof Error ? error.message.split('\n')[0] : String(error));
+
+    let abandoned: string[];
+    try {
+      await enterOrgHome(page, orgHandler);
+      abandoned = staleProjects(await listFixtureProjects(page), new Date(), own);
+    } catch (error) {
+      test.skip(true, `could not read the organization's projects: ${reason(error)}`);
+      return;
+    }
+
+    if (abandoned.length === 0) {
+      test.info().annotations.push({ type: 'fixture', description: `no project older than ${STALE_AGE_MS / 60_000} minutes to sweep` });
+      return;
+    }
+
+    const failed: string[] = [];
+    for (const project of abandoned) {
+      // Isolated per project: one that cannot be deleted must not cost the others their turn.
+      try {
+        // The helpers act on whichever project is active, so the sweep borrows the name in turn.
+        setActiveProject(project);
+        await enterOrgHome(page, orgHandler);
+
+        // A project already being deleted keeps its card but loses the settings button, so it cannot be opened.
+        if (!(await projectSettingsButton(page).isVisible({ timeout: 15_000 }).catch(() => false))) {
+          test.info().annotations.push({ type: 'fixture', description: `${project} is already being deleted; left to finish` });
+          continue;
+        }
+
+        await openProject(page, project);
+        await waitForIntegrationsToLoad(page);
+        await deleteAllIntegrations(page);
+
+        await openProjectSettings(page, orgHandler);
+        const deleteProject = page.getByRole('button', { name: 'Delete Project', exact: true });
+        await expect(deleteProject).toBeEnabled({ timeout: PROJECT_REMOVAL_TIMEOUT_MS });
+        await deleteProject.click();
+        await confirmRemoval(page, 'Enter project name to confirm', project);
+        test.info().annotations.push({ type: 'fixture', description: `swept abandoned ${project}` });
+      } catch (error) {
+        failed.push(project);
+        test.info().annotations.push({ type: 'fixture', description: `${project} could not be swept: ${reason(error)}` });
+      } finally {
+        setActiveProject(own);
+      }
+    }
+
+    test.skip(failed.length > 0, `left for the next run: ${failed.join(', ')}`);
   });
 });
 
