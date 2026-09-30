@@ -22,7 +22,8 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { reseedSessionToken, waitForApiConfig } from './cloud-fixtures.js';
 import { expandSidebar, gotoOrgHome, openProject } from './console-nav.js';
 import { dismissStrayDialog } from './journey-envcard.js';
-import { PROJECT, PROJECT_REMOVAL_TIMEOUT_MS } from './journey-fixtures.js';
+import { PROJECT_REMOVAL_TIMEOUT_MS } from './journey-fixtures.js';
+import { activeProject } from './journey-project.js';
 
 /** Parked on config.json first: reseeding writes through the page, so it needs the console's origin. */
 export async function refreshSession(page: Page): Promise<void> {
@@ -58,7 +59,7 @@ export async function enterOrgHome(page: Page, orgHandler: string): Promise<void
 
 export async function enterProject(page: Page, orgHandler: string): Promise<void> {
   await enterOrgHome(page, orgHandler);
-  await openProject(page, PROJECT);
+  await openProject(page, activeProject());
 }
 
 /** Reached through the sidebar each time: reloading the settings URL bounces the console back to the project home. */
@@ -73,12 +74,12 @@ export async function openProjectSettings(page: Page, orgHandler: string): Promi
 export async function filterToProject(page: Page): Promise<void> {
   const search = page.getByPlaceholder('Search projects');
   if (!(await search.isVisible({ timeout: 15_000 }).catch(() => false))) return;
-  await search.fill(PROJECT);
+  await search.fill(activeProject());
 }
 
 /** Present only on a card that is not being deleted — see ProjectCard in Projects.tsx. */
 export function projectSettingsButton(page: Page): Locator {
-  return page.getByRole('button', { name: `Settings for ${PROJECT}` }).first();
+  return page.getByRole('button', { name: `Settings for ${activeProject()}` }).first();
 }
 
 /** Asked of the page, not remembered: a worker restart resets any flag and would skip every group. */
@@ -94,24 +95,24 @@ export async function enterProjectOrSkip(page: Page, orgHandler: string): Promis
         .isVisible({ timeout: 15_000 })
         .catch(() => false)
     ) {
-      await openProject(page, PROJECT);
+      await openProject(page, activeProject());
       return;
     }
     await reseedHere(page);
   }
-  test.skip(true, `${PROJECT} was not on the organization home after three attempts — group 01 did not create it, or it is being deleted`);
+  test.skip(true, `${activeProject()} was not on the organization home after three attempts — group 01 did not create it, or it is being deleted`);
 }
 
 /** Waits out a project left mid-deletion by an earlier run: it can be neither reused nor recreated. */
 export async function waitForStaleProjectRemoval(page: Page): Promise<void> {
   if (
     !(await page
-      .getByText(PROJECT, { exact: true })
+      .getByText(activeProject(), { exact: true })
       .first()
       .isVisible({ timeout: 5_000 })
       .catch(() => false))
   )
     return;
-  test.info().annotations.push({ type: 'fixture', description: `${PROJECT} was still being deleted; waited for it to disappear` });
-  await expect(page.getByText(PROJECT, { exact: true }), `${PROJECT} is stuck mid-deletion on the org home`).toHaveCount(0, { timeout: PROJECT_REMOVAL_TIMEOUT_MS });
+  test.info().annotations.push({ type: 'fixture', description: `${activeProject()} was still being deleted; waited for it to disappear` });
+  await expect(page.getByText(activeProject(), { exact: true }), `${activeProject()} is stuck mid-deletion on the org home`).toHaveCount(0, { timeout: PROJECT_REMOVAL_TIMEOUT_MS });
 }
