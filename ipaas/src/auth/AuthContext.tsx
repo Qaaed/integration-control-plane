@@ -495,10 +495,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
   }, []);
 
   const logout = useCallback(async () => {
-    // Cloud: end the IdP (SSO) session too, or the next sign-in silently logs the
-    // user straight back in. Only local storage is cleared before the redirect —
-    // resetting React state here would re-render the /login route, whose cloud
-    // auto-redirect to /authorize would race and override this navigation.
+    // if Cloud: clear local tokens, then redirect to the IdP logout endpoint to end the SSO session.
     if (IS_CLOUD) {
       const { asgardeoClientId, asgardeoAuthorizeEndpoint } = window.API_CONFIG;
       const idTokenHint = getIdToken();
@@ -510,7 +507,7 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
         postLogoutRedirectUri: window.location.origin,
         idTokenHint,
       });
-      // The page is unloading; never settle so callers don't navigate over the redirect.
+      // Callers don't navigate over the redirect.
       return new Promise<void>(() => {});
     }
 
