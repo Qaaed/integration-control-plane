@@ -25,8 +25,17 @@ import { useComponentByHandler } from '../hooks/useComponents';
 import { useEnvironments, useAllEnvironments } from '../hooks/useEnvironments';
 import IntegrationLogs from '../components/Logs/IntegrationLogs';
 import LogsPageLayout from '../components/Logs/LogsPageLayout';
+import { AnalyzeErrorsButton, RemediationResult } from '../components/Logs/RemediationPanel';
 import EmptyListing from '../components/EmptyListing';
 import NotFound from '../components/NotFound';
+import { useRemediation } from '../hooks/useRemediation';
+import { useChoreoSampleImages } from '../hooks/useRepository';
+import { useIntegrationIdentity } from '../hooks/useIntegrationIdentity';
+import { useIntegrationModule } from '../hooks/useIntegrationModule';
+import { useAuth } from '../auth';
+import { errorEnvironment, recentErrorRows } from '../utils/logs';
+import { hasSourceRepo } from '../utils/integrationSource';
+import { withBase } from '../utils/basePath';
 import { broaden, resourceUrl, type ComponentScope } from '../nav';
 
 export default function RuntimeLogsIntegration(scope: ComponentScope): JSX.Element {
@@ -38,6 +47,13 @@ export default function RuntimeLogsIntegration(scope: ComponentScope): JSX.Eleme
   const orgUuid = orgs?.find((o) => o.handle === scope.org)?.uuid ?? '';
 
   const { data: component, isLoading: loadingComponent } = useComponentByHandler(projectId, scope.component);
+  const remediation = useRemediation(component?.id);
+  const { userId } = useAuth();
+  const { data: sampleImages } = useChoreoSampleImages(orgUuid, projectId);
+  const codeServerSample = sampleImages?.find((img) => img.name === 'Code Server');
+  // The type's Overview module says whether it opts out of the editor, as the overview header reads it.
+  const identity = useIntegrationIdentity(component);
+  const overviewModule = useIntegrationModule(identity?.type ?? null);
 
   const { data: projectEnvs = [], isLoading: loadingProjectEnvs } = useEnvironments(orgUuid, projectId);
   const { data: globalEnvs = [], isLoading: loadingGlobalEnvs } = useAllEnvironments();
@@ -65,9 +81,41 @@ export default function RuntimeLogsIntegration(scope: ComponentScope): JSX.Eleme
     );
   }
 
+  const openInCloudEditor =
+    codeServerSample && hasSourceRepo(component) && overviewModule && !overviewModule.hideOpenInEditor
+      ? (analysis?: { reportId: string; environment: string }): void => {
+          // Same launch as the overview header's Open in Cloud Editor.
+          const params = new URLSearchParams({ userId, orgUuid, orgHandle: scope.org, projectId, componentId: component.id, codeServerSample: JSON.stringify(codeServerSample) });
+          // Only the report's id travels; the backend fetches its steps itself.
+          if (analysis) {
+            params.set('reportId', analysis.reportId);
+            params.set('environment', analysis.environment);
+          }
+          window.open(`${window.location.origin}${withBase('/editor')}?${params}`, '_blank');
+        }
+      : undefined;
+
   return (
     <IntegrationLogs orgHandler={scope.org} orgUuid={orgUuid} component={component} environments={environments} region={project?.region} filtersKey={`${scope.org}/${scope.project}/${scope.component}`}>
-      {({ toolbar, viewer }) => <LogsPageLayout title="Runtime logs" filtersElement={toolbar} logPanelElement={viewer} />}
+      {({ toolbar, viewer, logs, selectedEnvIds }) => {
+        // Only errors the remediation agent can still read count, so the button never leads to "nothing logged".
+        const recentErrors = recentErrorRows(logs, Date.now());
+        const fixEnvironment = errorEnvironment(recentErrors, environments, selectedEnvIds);
+        const remediationTarget = fixEnvironment && { projectId, componentId: component.id, environmentId: fixEnvironment.id };
+        return (
+          <LogsPageLayout
+            title="Runtime logs"
+            titleAction={<AnalyzeErrorsButton remediation={remediation} hasErrors={recentErrors.length > 0} target={remediationTarget} />}
+            filtersElement={
+              <>
+                <RemediationResult remediation={remediation} target={remediationTarget} onOpenEditor={openInCloudEditor} />
+                {toolbar}
+              </>
+            }
+            logPanelElement={viewer}
+          />
+        );
+      }}
     </IntegrationLogs>
   );
 }
