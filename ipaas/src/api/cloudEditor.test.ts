@@ -88,6 +88,23 @@ afterEach(() => {
 });
 
 describe('callCreateCodeServer', () => {
+  // Only the report's id is sent: the BFF fetches its steps from the agent.
+  it('sends the analysis the editor is opened from', async () => {
+    post.mockResolvedValue({ componentName: 'cs-1', status: 'created', editorUrl: EDITOR_URL, ready: true });
+
+    await settle(callCreateCodeServer({ ...params, reportId: 'fixit-comp-1_1', environment: 'development' }));
+    expect(post).toHaveBeenCalledWith('/code-server', expect.objectContaining({ reportId: 'fixit-comp-1_1', environment: 'development' }));
+  });
+
+  it('sends no analysis on an ordinary open', async () => {
+    post.mockResolvedValue({ componentName: 'cs-1', status: 'created', editorUrl: EDITOR_URL, ready: true });
+
+    await settle(callCreateCodeServer(params));
+    const [, body] = post.mock.calls[0] as [string, Record<string, unknown>];
+    expect(body.reportId).toBeUndefined();
+    expect(body.environment).toBeUndefined();
+  });
+
   it('returns the URL directly when the create answers with one', async () => {
     post.mockResolvedValue({ componentName: 'cs-1', status: 'created', editorUrl: EDITOR_URL, ready: true });
 

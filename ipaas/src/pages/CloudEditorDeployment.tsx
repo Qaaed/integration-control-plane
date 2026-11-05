@@ -59,6 +59,8 @@ export default function CloudEditorDeployment(): JSX.Element {
       componentId: q.get('componentId') ?? '',
       codeServerSample: q.get('codeServerSample') ?? '',
       sourceCommitHash: q.get('sourceCommitHash') ?? '',
+      reportId: q.get('reportId') ?? '',
+      environment: q.get('environment') ?? '',
     };
   }, [location.search]);
 
@@ -109,6 +111,8 @@ export default function CloudEditorDeployment(): JSX.Element {
             imageUrl: codeServerSample.image_url,
             registryId: registry.id,
             sourceCommitHash: params.sourceCommitHash || undefined,
+            reportId: params.reportId || undefined,
+            environment: params.environment || undefined,
           });
         } catch (err) {
           const timedOut = err instanceof Error && err.message === CLOUD_EDITOR_TIMEOUT_MESSAGE;
