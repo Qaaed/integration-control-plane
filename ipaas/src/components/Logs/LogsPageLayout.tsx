@@ -16,21 +16,26 @@
  * under the License.
  */
 
-import { PageContent, Typography } from '@wso2/oxygen-ui';
+import { PageContent, Stack, Typography } from '@wso2/oxygen-ui';
 import type { JSX, ReactNode } from 'react';
 
 interface LogsPageLayoutProps {
   title: string;
+  /** Shown on the title's row, after it. */
+  titleAction?: ReactNode;
   filtersElement: ReactNode;
   logPanelElement: ReactNode;
 }
 
-export default function LogsPageLayout({ title, filtersElement, logPanelElement }: LogsPageLayoutProps): JSX.Element {
+const titleRowSx = { mb: 2 } as const;
+
+export default function LogsPageLayout({ title, titleAction, filtersElement, logPanelElement }: LogsPageLayoutProps): JSX.Element {
   return (
     <PageContent fullWidth>
-      <Typography variant="h1" sx={{ mb: 2 }}>
-        {title}
-      </Typography>
+      <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between" sx={titleRowSx}>
+        <Typography variant="h1">{title}</Typography>
+        {titleAction}
+      </Stack>
       {filtersElement}
       {logPanelElement}
     </PageContent>

@@ -165,6 +165,28 @@ export function findEnvironment<T extends Pick<Environment, 'id' | 'name'>>(envi
   return wanted ? environments.find((e) => e.id.toLowerCase() === wanted || e.name.toLowerCase() === wanted) : undefined;
 }
 
+const isErrorRow = (row: LogRow): boolean => (row.level ?? '').toUpperCase() === 'ERROR';
+
+/** How far back the remediation agent reads logs (its LOG_WINDOW_MINUTES); older errors leave it nothing to analyze. */
+export const REMEDIATION_LOG_WINDOW_MS = 15 * 60 * 1000;
+
+/** The ERROR rows logged within the remediation agent's window before `now`. */
+export function recentErrorRows(rows: LogRow[], now: number): LogRow[] {
+  const since = now - REMEDIATION_LOG_WINDOW_MS;
+  return rows.filter((row) => isErrorRow(row) && new Date(row.timestamp).getTime() >= since);
+}
+
+/**
+ * The environment whose errors a remediation run looks at: the one selected, else the one every
+ * error row comes from. None when the errors span environments, so the user narrows the filter first.
+ */
+export function errorEnvironment<T extends Pick<Environment, 'id' | 'name'>>(rows: LogRow[], environments: T[], selectedIds: string[]): T | undefined {
+  if (selectedIds.length === 1) return environments.find((e) => e.id === selectedIds[0]);
+  const placed = rows.filter(isErrorRow).map((row) => findEnvironment(environments, row.environment));
+  const [first] = placed;
+  return first && placed.every((e) => e === first) ? first : undefined;
+}
+
 export interface LogScopeFilter {
   /** The selected environments; empty keeps every environment. */
   environments: Pick<Environment, 'id' | 'name'>[];
