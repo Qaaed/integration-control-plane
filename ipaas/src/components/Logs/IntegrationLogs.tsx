@@ -44,8 +44,8 @@ interface IntegrationLogsProps {
   versionIds?: string[];
   /** Persists the filters under this key; omitted, they reset on every mount. */
   filtersKey?: string;
-  /** Places the toolbar and the viewer, so a page and a drawer can lay them out differently. */
-  children: (parts: { toolbar: ReactNode; viewer: ReactNode }) => ReactNode;
+  /** Places the toolbar and the viewer, so a page and a drawer can lay them out differently; `logs` are the rows on screen. */
+  children: (parts: { toolbar: ReactNode; viewer: ReactNode; logs: LogRow[]; selectedEnvIds: string[] }) => ReactNode;
 }
 
 /** An integration's runtime logs (its own and its gateway's), shared by the Runtime Logs page and the logs drawer. */
@@ -186,5 +186,5 @@ export default function IntegrationLogs({ orgHandler, orgUuid, component, enviro
     />
   );
 
-  return <>{children({ toolbar, viewer })}</>;
+  return <>{children({ toolbar, viewer, logs, selectedEnvIds })}</>;
 }

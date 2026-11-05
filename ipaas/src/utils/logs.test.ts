@@ -17,7 +17,25 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { copyLog, DISPLAY_FIELDS, downloadLogs, downloadTextFile, filterLogLines, filterLogRows, formatValue, LEVEL_COLORS, levelColor, toLocalInput, mergeLogRows, selectLogSources, filterLogsByScope, findEnvironment, sortLogRows } from './logs';
+import {
+  copyLog,
+  DISPLAY_FIELDS,
+  downloadLogs,
+  downloadTextFile,
+  errorEnvironment,
+  filterLogLines,
+  filterLogRows,
+  formatValue,
+  LEVEL_COLORS,
+  levelColor,
+  toLocalInput,
+  mergeLogRows,
+  recentErrorRows,
+  selectLogSources,
+  filterLogsByScope,
+  findEnvironment,
+  sortLogRows,
+} from './logs';
 import type { LogRow } from '../types/logs';
 
 const makeLogRow = (overrides: Partial<LogRow> = {}): LogRow => ({
@@ -312,5 +330,46 @@ describe('findEnvironment', () => {
     ['nothing', null, undefined],
   ])('resolves %s', (_label, value, expected) => {
     expect(findEnvironment(environments, value)?.name).toBe(expected);
+  });
+});
+
+describe('recentErrorRows', () => {
+  const now = Date.parse('2026-01-01T01:00:00.000Z');
+  const at = (minutesAgo: number, level = 'ERROR'): LogRow => makeLogRow({ level, timestamp: new Date(now - minutesAgo * 60_000).toISOString() });
+
+  it('keeps ERROR rows inside the window whatever their case', () => {
+    expect(recentErrorRows([at(1), at(5, 'error'), at(15)], now)).toHaveLength(3);
+  });
+
+  it('drops errors older than the window', () => {
+    expect(recentErrorRows([at(16), at(60)], now)).toEqual([]);
+  });
+
+  it('drops rows that are not errors', () => {
+    expect(recentErrorRows([at(1, 'INFO'), at(1, 'WARN')], now)).toEqual([]);
+  });
+});
+
+describe('errorEnvironment', () => {
+  const environments = [
+    { id: 'development', name: 'Development' },
+    { id: 'prod', name: 'Production' },
+  ];
+  const error = (environment: string): LogRow => makeLogRow({ level: 'ERROR', environment });
+
+  it('uses the one selected environment', () => {
+    expect(errorEnvironment([error('Development'), error('Production')], environments, ['prod'])?.id).toBe('prod');
+  });
+
+  it('uses the environment every error comes from', () => {
+    expect(errorEnvironment([error('Production'), makeLogRow({ environment: 'Development' }), error('prod')], environments, [])?.id).toBe('prod');
+  });
+
+  it('picks none when the errors span environments', () => {
+    expect(errorEnvironment([error('Development'), error('Production')], environments, ['development', 'prod'])).toBeUndefined();
+  });
+
+  it('picks none when an error cannot be placed', () => {
+    expect(errorEnvironment([error('Production'), error('staging')], environments, [])).toBeUndefined();
   });
 });
