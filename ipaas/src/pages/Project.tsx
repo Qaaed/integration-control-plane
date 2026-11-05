@@ -732,7 +732,8 @@ export default function Project(scope: ProjectScope): JSX.Element {
       componentId: openInCloudComponent.id,
       codeServerSample: JSON.stringify(codeServerSample),
     });
-    window.open(`${window.location.origin}${withBase('/editor')}?${params}`, '_blank', 'noopener,noreferrer');
+    // No 'noopener': the new tab then gets a copy of this tab's sessionStorage, so it starts signed in.
+    window.open(`${window.location.origin}${withBase('/editor')}?${params}`, '_blank');
     setSplitOpen(false);
     setOpenEditorWarning(null);
   };
