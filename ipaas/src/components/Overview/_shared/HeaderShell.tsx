@@ -231,7 +231,8 @@ export default function ComponentHeader({ component, repository, latestCommit, o
       codeServerSample: JSON.stringify(codeServerSample),
       sourceCommitHash: latestCommit?.sha ?? '',
     });
-    window.open(`${window.location.origin}${withBase('/editor')}?${params}`, '_blank', 'noopener,noreferrer');
+    // No 'noopener': the new tab then gets a copy of this tab's sessionStorage, so it starts signed in.
+    window.open(`${window.location.origin}${withBase('/editor')}?${params}`, '_blank');
   };
 
   // The header sits in a content column of variable width (next to the app sidebar), which can be
