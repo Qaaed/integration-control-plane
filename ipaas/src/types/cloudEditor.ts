@@ -24,6 +24,9 @@ export interface DeploymentParams {
   componentId: string;
   codeServerSample: string;
   sourceCommitHash: string;
+  /** The root cause analysis the editor is opened from, with the environment it ran in; '' otherwise. */
+  reportId: string;
+  environment: string;
 }
 
 export interface ContainerRegistry {

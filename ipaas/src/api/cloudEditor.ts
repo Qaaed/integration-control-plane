@@ -109,8 +109,8 @@ export async function getCodeServer(params: { userId: string; projectId: string;
   }
 }
 
-export async function callCreateCodeServer(params: { userId: string; organizationId: string; projectId: string; componentId: string; orgHandle: string; imageUrl: string; registryId: string; sourceCommitHash?: string }): Promise<CodeServerInstance> {
-  const { userId, projectId, componentId, imageUrl, sourceCommitHash } = params;
+export async function callCreateCodeServer(params: { userId: string; organizationId: string; projectId: string; componentId: string; orgHandle: string; imageUrl: string; registryId: string; sourceCommitHash?: string; reportId?: string; environment?: string }): Promise<CodeServerInstance> {
+  const { userId, projectId, componentId, imageUrl, sourceCommitHash, reportId, environment } = params;
 
   // organizationId/orgHandle are accepted but deliberately not forwarded: the BFF's
   // CreateCodeServerInput has no org fields — it resolves the org (namespace) from the bearer token's
@@ -123,6 +123,10 @@ export async function callCreateCodeServer(params: { userId: string; organizatio
       componentId,
       imageUrl,
       sourceCommitHash,
+      // Opened from a root cause analysis: the BFF fetches the report's steps
+      // for the editor's Copilot. Absent on every other open.
+      reportId,
+      environment,
     });
     // Either URL ends the wait — a pending one is the editor's real address.
     if (urlOf(created)) return asInstance(urlOf(created), readyOf(created));
