@@ -45,6 +45,23 @@ export function buildCloudEditorUrl(params: CloudEditorParams, origin: string): 
 }
 
 /**
+ * The editor URL for opening an existing integration's code. When the editor holds scaffold
+ * settings (an RCA report's steps leave them), its first load in a browser otherwise takes the
+ * folder for a new project and deletes everything but Ballerina.toml; `reset` keeps the files.
+ * A new project (componentId 'null') is left alone, so its scaffold still starts from an empty folder.
+ */
+export function editorUrlKeepingFiles(url: string, componentId: string, reportId?: string): string {
+  if (!componentId || componentId === 'null') return url;
+  try {
+    const u = new URL(url);
+    u.searchParams.set('reset', reportId || componentId);
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+/**
  * The editor URL with its connection token removed, for showing on screen.
  * Navigation keeps using the full URL; an unparseable value is returned unchanged.
  */

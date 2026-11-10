@@ -25,6 +25,7 @@ import DeploymentWheel from '../components/CloudEditor/DeploymentWheel';
 import { Scopes } from '../constants/permissions';
 import { useAccessControl } from '../contexts/AccessControlContext';
 import { useCan } from '../hooks/useCan';
+import { editorUrlKeepingFiles } from '../utils/cloudEditor';
 import type { ChoreoSampleImage, CloudEditorStepKey, CodeServerInstance, DeploymentParams } from '../types/cloudEditor';
 
 /**
@@ -148,7 +149,7 @@ export default function CloudEditorDeployment(): JSX.Element {
           return;
         }
         setStepKey('opening');
-        redirect(resolved.url);
+        redirect(editorUrlKeepingFiles(resolved.url, params.componentId, params.reportId));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
       }
@@ -167,8 +168,8 @@ export default function CloudEditorDeployment(): JSX.Element {
     if (!current?.ready) return;
     setStepKey('opening');
     // Redirect to the address the server just confirmed, not the one in state.
-    redirect(current.url);
-  }, [awaitingReady, readyQuery.data]);
+    redirect(editorUrlKeepingFiles(current.url, params.componentId, params.reportId));
+  }, [awaitingReady, readyQuery.data, params]);
 
   // Polling carries on through failed lookups (a blip during a pod restart is normal), so only
   // the timeout ends the wait; it reports a lookup that was still failing at that point.

@@ -17,7 +17,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { buildCloudEditorUrl, displayableEditorUrl } from './cloudEditor';
+import { buildCloudEditorUrl, displayableEditorUrl, editorUrlKeepingFiles } from './cloudEditor';
 
 const base = {
   userId: 'u1',
@@ -41,6 +41,31 @@ describe('buildCloudEditorUrl', () => {
     expect(new URL(buildCloudEditorUrl(base, 'https://example.com')).searchParams.has('scaffoldKey')).toBe(false);
     const withKey = new URL(buildCloudEditorUrl({ ...base, scaffoldKey: 'ai-scaffold-9' }, 'https://example.com'));
     expect(withKey.searchParams.get('scaffoldKey')).toBe('ai-scaffold-9');
+  });
+});
+
+describe('editorUrlKeepingFiles', () => {
+  const editor = 'https://editor-abc.example.com/?tkn=deadbeef';
+
+  it('marks the open with the report it comes from', () => {
+    const url = new URL(editorUrlKeepingFiles(editor, 'comp-1', 'fixit-comp_1'));
+    expect(url.searchParams.get('reset')).toBe('fixit-comp_1');
+    expect(url.searchParams.get('tkn')).toBe('deadbeef');
+  });
+
+  // Steps from an earlier analysis can still be on the editor, so a plain open needs it too.
+  it('marks a plain open of an existing integration with its component', () => {
+    expect(new URL(editorUrlKeepingFiles(editor, 'comp-1')).searchParams.get('reset')).toBe('comp-1');
+  });
+
+  // The new-project scaffold is meant to start from an empty folder.
+  it('leaves a new project alone', () => {
+    expect(editorUrlKeepingFiles(editor, 'null')).toBe(editor);
+    expect(editorUrlKeepingFiles(editor, '')).toBe(editor);
+  });
+
+  it('returns an unparseable value unchanged', () => {
+    expect(editorUrlKeepingFiles('not a url', 'comp-1')).toBe('not a url');
   });
 });
 
