@@ -21,7 +21,7 @@ import { Cloud, Sparkles } from '@wso2/oxygen-ui-icons-react';
 import type { JSX, ReactNode } from 'react';
 import type { Remediation } from '../../hooks/useRemediation';
 import type { RemediationTarget } from '../../types/remediation';
-import { plainSummary } from '../../utils/remediation';
+import { analyzeAction, plainSummary } from '../../utils/remediation';
 import { actionSx, bodySx, resultSx, spinnerSx, textSx } from './RemediationPanel.styles';
 
 interface AnalyzeErrorsButtonProps {
@@ -32,19 +32,21 @@ interface AnalyzeErrorsButtonProps {
   target: RemediationTarget | undefined;
 }
 
-/** Keeps one label and size whatever the run's state, so the title row never shifts. */
-export function AnalyzeErrorsButton({ remediation, hasErrors, target }: AnalyzeErrorsButtonProps): JSX.Element | null {
-  const { started, start, working } = remediation;
-  // Once a run has started the button stays, even if a filter later hides the errors.
-  if (!started && !hasErrors) return null;
+/** Always shown, so the title row never shifts; when it cannot start a run, its tooltip says why. */
+export function AnalyzeErrorsButton({ remediation, hasErrors, target }: AnalyzeErrorsButtonProps): JSX.Element {
+  const { start, working } = remediation;
+  const action = analyzeAction(working, hasErrors, target);
+  const button = (
+    <Button variant="contained" sx={actionSx} startIcon={working ? <CircularProgress size={16} color="inherit" /> : <Sparkles size={16} />} disabled={'reason' in action} onClick={'target' in action ? () => start(action.target) : undefined}>
+      {working ? 'Analyzing…' : 'Analyze errors'}
+    </Button>
+  );
+  if ('target' in action) return button;
 
+  // A disabled button fires no hover events, so the span carries the tooltip.
   return (
-    <Tooltip title={target ? '' : 'Select one environment to analyze its errors.'}>
-      <span>
-        <Button variant="contained" sx={actionSx} startIcon={working ? <CircularProgress size={16} color="inherit" /> : <Sparkles size={16} />} disabled={!target || working} onClick={() => target && start(target)}>
-          Analyze errors
-        </Button>
-      </span>
+    <Tooltip title={action.reason}>
+      <span>{button}</span>
     </Tooltip>
   );
 }
@@ -61,7 +63,7 @@ interface RemediationResultProps {
 
 /** The run's progress, then its summary once ready, or why there is none. */
 export function RemediationResult({ remediation, target, onOpenEditor }: RemediationResultProps): JSX.Element | null {
-  const { query, start, working, step } = remediation;
+  const { query, start, working, step, waitNote } = remediation;
   const retry = target && (
     <Button size="small" sx={actionSx} onClick={() => start(target)}>
       Retry
@@ -71,7 +73,7 @@ export function RemediationResult({ remediation, target, onOpenEditor }: Remedia
 
   const decision = query.data;
   if (decision?.status === 'unavailable') return <ResultBlock title="Root cause analysis failed" text={decision.reason} color="error" action={retry} />;
-  if (working) return <ResultBlock icon={<CircularProgress size={20} sx={spinnerSx} />} title="Analyzing errors" text={step} color="text.secondary" />;
+  if (working) return <ResultBlock icon={<CircularProgress size={20} sx={spinnerSx} />} title="Analyzing errors" text={step} note={waitNote} color="text.secondary" />;
   if (decision?.status === 'unneeded') return <ResultBlock title="No root cause analysis needed" text={decision.reason} color="text.secondary" />;
   if (decision?.status !== 'ready') return null;
 
@@ -88,12 +90,14 @@ export function RemediationResult({ remediation, target, onOpenEditor }: Remedia
 interface ResultBlockProps {
   title: string;
   text: string;
+  /** A second, smaller line under the text. */
+  note?: string;
   color?: string;
   icon?: ReactNode;
   action?: ReactNode;
 }
 
-function ResultBlock({ title, text, color, icon, action }: ResultBlockProps): JSX.Element {
+function ResultBlock({ title, text, note, color, icon, action }: ResultBlockProps): JSX.Element {
   return (
     <Paper variant="outlined" sx={resultSx}>
       <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
@@ -104,6 +108,11 @@ function ResultBlock({ title, text, color, icon, action }: ResultBlockProps): JS
             <Typography variant="body2" color={color} sx={bodySx}>
               {text}
             </Typography>
+            {note && (
+              <Typography variant="caption" color="text.secondary">
+                {note}
+              </Typography>
+            )}
           </Stack>
         </Stack>
         {action}

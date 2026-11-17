@@ -20,7 +20,7 @@ import { useState } from 'react';
 import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
 import { decideRemediation } from '../api/remediation';
 import type { RemediationDecision, RemediationTarget } from '../types/remediation';
-import { remediationStep } from '../utils/remediation';
+import { remediationStep, remediationWaitNote } from '../utils/remediation';
 
 const REMEDIATION_POLL_MS = 8000;
 /** A run still pending after this long is given up on, so it ends in a Retry rather than polling forever. */
@@ -55,10 +55,12 @@ export function useRemediation(componentId: string | undefined) {
   const start = (target: RemediationTarget): void => setRun((prev) => ({ target, attempt: (prev?.attempt ?? 0) + 1, startedAt: Date.now() }));
   const working = query.isFetching || (!query.isError && query.data?.status === 'pending');
   // Measured at each answer rather than on a timer: every poll lands a new dataUpdatedAt, so the step moves with the polls.
-  const step = remediationStep(query.data?.reportId !== undefined, run ? query.dataUpdatedAt - run.startedAt : 0);
+  const elapsed = run ? query.dataUpdatedAt - run.startedAt : 0;
+  const step = remediationStep(query.data?.reportId !== undefined, elapsed);
+  const waitNote = remediationWaitNote(elapsed);
 
   // What the run looked at, which the selection may since have moved away from.
-  return { query, started: run !== null, start, working, step, runTarget: run?.target };
+  return { query, start, working, step, waitNote, runTarget: run?.target };
 }
 
 export type Remediation = ReturnType<typeof useRemediation>;

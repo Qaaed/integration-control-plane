@@ -16,6 +16,19 @@
  * under the License.
  */
 
+import { REMEDIATION_LOG_WINDOW_MS } from './logs';
+
+/** What clicking Analyze errors would do: start a run on `target`, or nothing, for `reason`. */
+export type AnalyzeAction<T> = { target: T } | { reason: string };
+
+/** Whether Analyze errors can start a run, or why not, for the disabled button's tooltip. */
+export function analyzeAction<T>(working: boolean, hasErrors: boolean, target: T | undefined): AnalyzeAction<T> {
+  if (working) return { reason: 'An analysis is already running.' };
+  if (!hasErrors) return { reason: `No errors in the last ${REMEDIATION_LOG_WINDOW_MS / 60_000} minutes to analyze.` };
+  if (target === undefined) return { reason: 'Select one environment to analyze its errors.' };
+  return { target };
+}
+
 // The SRE agent tags entities so its own UI can link them: `<comp:name>`, `<proj:name>`, `<env:name>`, `<ns:name>`.
 const ENTITY_TAG = /`?<(?:comp|proj|env|ns):([^<>]+)>`?/g;
 
@@ -34,4 +47,12 @@ const STEP_MS = 20_000;
 export function remediationStep(hasReport: boolean, elapsedMs: number): string {
   if (!hasReport) return 'Analyzing recent error logs…';
   return ANALYSIS_STEPS[Math.min(Math.floor(Math.max(elapsedMs, 0) / STEP_MS), ANALYSIS_STEPS.length - 1)];
+}
+
+// A run usually finishes in about two minutes; one still going after three is a slow one.
+const LONG_WAIT_MS = 3 * 60_000;
+
+/** The line under the progress step that says how long a run takes, and that a slow one is still going. */
+export function remediationWaitNote(elapsedMs: number): string {
+  return elapsedMs < LONG_WAIT_MS ? 'This may take a few minutes.' : 'This may take a few more minutes.';
 }

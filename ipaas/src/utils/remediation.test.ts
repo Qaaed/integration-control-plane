@@ -17,7 +17,31 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { plainSummary, remediationStep } from './remediation';
+import { analyzeAction, plainSummary, remediationStep, remediationWaitNote } from './remediation';
+
+describe('analyzeAction', () => {
+  const target = { projectId: 'p', componentId: 'c', environmentId: 'e' };
+
+  it('starts a run on the target when there are recent errors', () => {
+    expect(analyzeAction(false, true, target)).toEqual({ target });
+  });
+
+  it('says a run is already going while one is', () => {
+    expect(analyzeAction(true, true, target)).toEqual({ reason: 'An analysis is already running.' });
+  });
+
+  it('says there is nothing to analyze without recent errors', () => {
+    expect(analyzeAction(false, false, target)).toEqual({ reason: 'No errors in the last 15 minutes to analyze.' });
+  });
+
+  it('asks for one environment when the errors span several', () => {
+    expect(analyzeAction(false, true, undefined)).toEqual({ reason: 'Select one environment to analyze its errors.' });
+  });
+
+  it('names the running analysis first, whatever else is true', () => {
+    expect(analyzeAction(true, false, undefined)).toEqual({ reason: 'An analysis is already running.' });
+  });
+});
 
 describe('plainSummary', () => {
   it('replaces an entity tag with its name', () => {
@@ -60,5 +84,23 @@ describe('remediationStep', () => {
 
   it('treats a negative elapsed time as the start', () => {
     expect(remediationStep(true, -5_000)).toBe('Running root cause analysis…');
+  });
+});
+
+describe('remediationWaitNote', () => {
+  it('says a run takes a few minutes when it starts', () => {
+    expect(remediationWaitNote(0)).toBe('This may take a few minutes.');
+  });
+
+  it('keeps saying so until three minutes have passed', () => {
+    expect(remediationWaitNote(3 * 60_000 - 1)).toBe('This may take a few minutes.');
+  });
+
+  it('says a few more minutes once a run passes three minutes', () => {
+    expect(remediationWaitNote(3 * 60_000)).toBe('This may take a few more minutes.');
+  });
+
+  it('treats a negative elapsed time as the start', () => {
+    expect(remediationWaitNote(-5_000)).toBe('This may take a few minutes.');
   });
 });
